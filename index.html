@@ -2,11 +2,12 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Family Tree</title><style>
 body{margin:0;background:#f4f7fb;color:#243047;font:16px system-ui}header,article{background:#fff}header{padding:20px;border-bottom:1px solid #dbe3ef}main{max-width:1050px;margin:auto;padding:16px}h1{margin:0}.sub,small{color:#65738a}.controls{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}input,button{font:inherit;padding:10px;border:1px solid #cbd5e1;border-radius:8px}input{flex:1;min-width:200px}button{background:#234e8a;color:white;cursor:pointer}.status{padding:12px;background:#e7eef8;border-radius:8px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.card{border:1px solid #dbe3ef;border-radius:12px;padding:14px}.card h2{font-size:1.08rem;margin:4px 0 8px}.detail{margin:6px 0;overflow-wrap:anywhere}.id{font-size:.8rem;color:#738198}.badge{display:inline-block;background:#edf3fc;border-radius:6px;padding:3px 7px;margin:2px;font-size:.8rem}footer{padding:10px 16px 30px;color:#65738a;font-size:.85rem}
-.act{margin-top:10px;display:flex;gap:8px}.act button{padding:5px 12px;font-size:.85rem}button.red{background:#b3261e}button.alt{background:#e7eef8;color:#234e8a;border-color:#b8c8e2}dialog{border:1px solid #cbd5e1;border-radius:12px;width:min(94vw,440px);color:#243047}label{display:block;margin:8px 0 2px;font-size:.85rem;color:#65738a}dialog input,dialog select,dialog textarea{width:100%;min-width:0;font:inherit;padding:8px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box}.bar{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.ck{display:flex;gap:6px;align-items:center}.ck input{width:auto}.x{cursor:pointer;margin-left:4px;color:#b3261e}.warn{background:#fff3cd}</style></head><body><header><main style="padding:0"><h1>Family Tree</h1><div class="sub">Explore people, parents, children, and marriages</div></main></header>
+.act{margin-top:10px;display:flex;gap:8px}.act button{padding:5px 12px;font-size:.85rem}button.red{background:#b3261e}button.alt{background:#e7eef8;color:#234e8a;border-color:#b8c8e2}dialog{border:1px solid #cbd5e1;border-radius:12px;width:min(94vw,440px);color:#243047}label{display:block;margin:8px 0 2px;font-size:.85rem;color:#65738a}dialog input,dialog select,dialog textarea{width:100%;min-width:0;font:inherit;padding:8px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box}.bar{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.ck{display:flex;gap:6px;align-items:center}.ck input{width:auto}.x{cursor:pointer;margin-left:4px;color:#b3261e}.warn{background:#fff3cd}.lnk{color:#234e8a;text-decoration:underline;cursor:pointer;font-weight:600}.card{scroll-margin-top:12px;transition:background .3s}.card.hl{box-shadow:0 0 0 3px #f5b301;background:#fff8e1}#back{position:fixed;bottom:16px;right:16px;z-index:5;box-shadow:0 2px 8px #0003}</style></head><body><header><main style="padding:0"><h1>Family Tree</h1><div class="sub">Explore people, parents, children, and marriages</div></main></header>
 <main><div class="controls"><input id="search" placeholder="Search by name or ID…"><button id="add">+ Add person</button><button id="reload" class="alt">Reload data</button></div>
 <div class="controls"><button id="dp" class="alt">⬇ Download people.csv</button><button id="dm" class="alt">⬇ Download marriages.csv</button></div>
 <div id="status" class="status">Loading…</div><div id="count" class="sub"></div><div id="people" class="grid"></div></main>
 
+<button id="back" hidden>↩ Back</button>
 <dialog id="dlg"><form method="dialog" onsubmit="return false"><h3 id="dt"></h3>
 <label>Name</label><input id="f_name">
 <label>Gender</label><select id="f_gender"><option value="">—</option><option>male</option><option>female</option></select>
@@ -36,12 +37,17 @@ function spouses(id){let a=[];marriages.forEach(m=>{if(+m.person1_id===+id)a.pus
 function bov(p){const n=Number(p.birth_order);return p.birth_order==null||String(p.birth_order).trim()===""||!Number.isFinite(n)?null:n}
 function cmp(a,b){const x=bov(a),y=bov(b);if(x===null&&y===null)return Number(a.id)-Number(b.id);if(x===null)return 1;if(y===null)return -1;return x-y||Number(a.id)-Number(b.id)}
 function mark(){dirty=true;localStorage.setItem("ftDraft",JSON.stringify({people,marriages}));$("status").textContent="You have unsaved edits. Download both CSV files and import them into your tables.";$("status").classList.add("warn")}
+const L=id=>{if(id==null||id==="")return"Unknown";return people.find(x=>+x.id===+id)?`<a class="lnk" data-go="${id}">${esc(nameOf(id))}</a>`:esc(nameOf(id))};
+let hist=[];
+function go(id){hist.push(window.scrollY);$("back").hidden=false;if($("search").value){$("search").value="";render()}
+ const el=document.getElementById("p"+id);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("hl");setTimeout(()=>el.classList.remove("hl"),2500)}}
+$("back").onclick=()=>{const y=hist.pop();window.scrollTo({top:y||0,behavior:"smooth"});if(!hist.length)$("back").hidden=true};
 function render(){const q=$("search").value.trim().toLowerCase();
  const shown=people.filter(p=>!q||String(p.name||"").toLowerCase().includes(q)||String(p.id).includes(q));
  $("count").textContent=`Showing ${shown.length} of ${people.length} people · ${marriages.length} marriage records`;
  $("people").innerHTML=shown.map(p=>{const ss=spouses(p.id),cs=people.filter(c=>+c.father_id===+p.id||+c.mother_id===+p.id).sort(cmp);
  const life=(p.dob||p.dod)?`<div class="detail"><b>Life:</b> ${esc(p.dob||"?")} – ${esc(p.dod||"")}</div>`:"";
- return `<article class="card"><div class="id">Person #${esc(p.id)}${p.gender?" · "+esc(p.gender):""}</div><h2>${esc(p.name||"Unnamed person")}</h2>${bov(p)!==null?`<div class="detail"><b>Birth order:</b> ${esc(p.birth_order)}</div>`:""}${life}<div class="detail"><b>Father:</b> ${esc(nameOf(p.father_id))}</div><div class="detail"><b>Mother:</b> ${esc(nameOf(p.mother_id))}</div><div class="detail"><b>Spouse(s):</b> ${ss.length?ss.map(i=>`<span class="badge">${esc(nameOf(i))}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="detail"><b>Children:</b> ${cs.length?cs.map(c=>`<span class="badge">${esc(nameOf(c.id))}${bov(c)!==null?` · ${esc(c.birth_order)}`:""}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="act"><button data-e="${p.id}">Edit</button><button class="red" data-x="${p.id}">Delete</button></div></article>`}).join("")}
+ return `<article class="card" id="p${esc(p.id)}"><div class="id">Person #${esc(p.id)}${p.gender?" · "+esc(p.gender):""}</div><h2>${esc(p.name||"Unnamed person")}</h2>${bov(p)!==null?`<div class="detail"><b>Birth order:</b> ${esc(p.birth_order)}</div>`:""}${life}<div class="detail"><b>Father:</b> ${L(p.father_id)}</div><div class="detail"><b>Mother:</b> ${L(p.mother_id)}</div><div class="detail"><b>Spouse(s):</b> ${ss.length?ss.map(i=>`<span class="badge">${L(i)}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="detail"><b>Children:</b> ${cs.length?cs.map(c=>`<span class="badge">${L(c.id)}${bov(c)!==null?` · ${esc(c.birth_order)}`:""}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="act"><button data-e="${p.id}">Edit</button><button class="red" data-x="${p.id}">Delete</button></div></article>`}).join("")}
 async function load(){
  $("status").classList.remove("warn");$("status").textContent="Loading family data…";
  try{const headers={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY};
@@ -76,6 +82,7 @@ $("cx").onclick=()=>$("dlg").close();
 $("add").onclick=()=>openForm();
 $("spadd").onclick=()=>{const v=$("f_sp").value;if(v){tmpSp.push(+v);spUi()}};
 document.body.addEventListener("click",e=>{const t=e.target;
+ if(t.dataset.go)go(+t.dataset.go);
  if(t.dataset.e)openForm(people.find(p=>+p.id===+t.dataset.e));
  if(t.dataset.r){tmpSp=tmpSp.filter(i=>i!==+t.dataset.r);spUi()}
  if(t.dataset.x){const id=+t.dataset.x;if(!confirm(`Delete ${nameOf(id)}? Links to this person (as parent or spouse) will be removed.`))return;
