@@ -2,24 +2,90 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Family Tree</title><style>
 body{margin:0;background:#f4f7fb;color:#243047;font:16px system-ui}header,article{background:#fff}header{padding:20px;border-bottom:1px solid #dbe3ef}main{max-width:1050px;margin:auto;padding:16px}h1{margin:0}.sub,small{color:#65738a}.controls{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}input,button{font:inherit;padding:10px;border:1px solid #cbd5e1;border-radius:8px}input{flex:1;min-width:200px}button{background:#234e8a;color:white;cursor:pointer}.status{padding:12px;background:#e7eef8;border-radius:8px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.card{border:1px solid #dbe3ef;border-radius:12px;padding:14px}.card h2{font-size:1.08rem;margin:4px 0 8px}.detail{margin:6px 0;overflow-wrap:anywhere}.id{font-size:.8rem;color:#738198}.badge{display:inline-block;background:#edf3fc;border-radius:6px;padding:3px 7px;margin:2px;font-size:.8rem}footer{padding:10px 16px 30px;color:#65738a;font-size:.85rem}
-</style></head><body><header><main style="padding:0"><h1>Family Tree</h1><div class="sub">Explore people, parents, children, and marriages</div></main></header>
-<main><div class="controls"><input id="search" placeholder="Search by name or ID…"><button id="reload">Reload data</button></div><div id="status" class="status">Configure your Supabase project details in this file.</div><div id="count" class="sub"></div><div id="people" class="grid"></div></main>
-<footer>Public preview. Do not add sensitive details until login and access controls are implemented.</footer>
+.act{margin-top:10px;display:flex;gap:8px}.act button{padding:5px 12px;font-size:.85rem}button.red{background:#b3261e}button.alt{background:#e7eef8;color:#234e8a;border-color:#b8c8e2}dialog{border:1px solid #cbd5e1;border-radius:12px;width:min(94vw,440px);color:#243047}label{display:block;margin:8px 0 2px;font-size:.85rem;color:#65738a}dialog input,dialog select,dialog textarea{width:100%;min-width:0;font:inherit;padding:8px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box}.bar{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}.ck{display:flex;gap:6px;align-items:center}.ck input{width:auto}.x{cursor:pointer;margin-left:4px;color:#b3261e}.warn{background:#fff3cd}</style></head><body><header><main style="padding:0"><h1>Family Tree</h1><div class="sub">Explore people, parents, children, and marriages</div></main></header>
+<main><div class="controls"><input id="search" placeholder="Search by name or ID…"><button id="add">+ Add person</button><button id="reload" class="alt">Reload data</button></div>
+<div class="controls"><button id="dp" class="alt">⬇ Download people.csv</button><button id="dm" class="alt">⬇ Download marriages.csv</button></div>
+<div id="status" class="status">Loading…</div><div id="count" class="sub"></div><div id="people" class="grid"></div></main>
+
+<dialog id="dlg"><form method="dialog" onsubmit="return false"><h3 id="dt"></h3>
+<label>Name</label><input id="f_name">
+<label>Gender</label><select id="f_gender"><option value="">—</option><option>male</option><option>female</option></select>
+<label>Father</label><select id="f_father"></select>
+<label>Mother</label><select id="f_mother"></select>
+<label>Birth order (among brothers and sisters)</label><input id="f_bo" type="number" min="1">
+<label>Date of birth</label><input id="f_dob" type="date">
+<label>Date of death</label><input id="f_dod" type="date">
+<label>Photo URL</label><input id="f_photo">
+<label>Branch</label><input id="f_branch">
+<label class="ck"><input id="f_ph" type="checkbox"> Placeholder name (real name not known yet)</label>
+<label>Notes</label><textarea id="f_notes" rows="2"></textarea>
+<label>Spouse(s)</label><div id="sp"></div>
+<div style="display:flex;gap:6px;margin-top:6px"><select id="f_sp"></select><button type="button" id="spadd" class="alt">Add</button></div>
+<div class="bar"><button type="button" id="cx" class="alt">Cancel</button><button type="button" id="sv">Save</button></div></form></dialog>
+
+<footer>Edits are kept in this browser until you download the CSV files and import them into your tables. Public preview: do not add sensitive details until login and access controls are implemented.</footer>
 <script>
-/* Replace these with your Supabase Project URL and publishable/anon key.
-   NEVER use a service_role or secret key in a public website. */
 const SUPABASE_URL="https://wzxouwyhpqqjyxfppzkw.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_J6TXONzH6rGFhM98qEQfAg_V5PEJW5-";
-let people=[],marriages=[];
+const PC=["id","name","gender","father_id","mother_id","birth_order","dob","dod","photo_url","branch","is_placeholder","notes"],MC=["id","person1_id","person2_id","marriage_date","notes"];
+let people=[],marriages=[],dirty=false,editId=null,tmpSp=[];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function nameOf(id){if(id==null)return"Unknown";const p=people.find(x=>+x.id===+id);return p?p.name:`ID ${id} (not found)`}
+function nameOf(id){if(id==null||id==="")return"Unknown";const p=people.find(x=>+x.id===+id);return p?p.name:`ID ${id} (not found)`}
 function spouses(id){let a=[];marriages.forEach(m=>{if(+m.person1_id===+id)a.push(+m.person2_id);else if(+m.person2_id===+id)a.push(+m.person1_id)});return [...new Set(a)]}
-function birthOrderValue(p){const n=Number(p.birth_order);return p.birth_order==null||String(p.birth_order).trim()===""||!Number.isFinite(n)?null:n}
-function compareBirthOrder(a,b){const x=birthOrderValue(a),y=birthOrderValue(b);if(x===null&&y===null)return Number(a.id)-Number(b.id);if(x===null)return 1;if(y===null)return -1;return x-y||Number(a.id)-Number(b.id)}
-function render(){const q=$("search").value.trim().toLowerCase();const shown=people.filter(p=>!q||String(p.name||"").toLowerCase().includes(q)||String(p.id).includes(q)||String(p.birth_order??"").includes(q));$("count").textContent=`Showing ${shown.length} of ${people.length} people · ${marriages.length} marriage records`;
-$("people").innerHTML=shown.map(p=>{const ss=spouses(p.id),cs=people.filter(c=>+c.father_id===+p.id||+c.mother_id===+p.id).sort(compareBirthOrder);return `<article class="card"><div class="id">Person #${esc(p.id)}</div><h2>${esc(p.name||"Unnamed person")}</h2>${birthOrderValue(p)!==null?`<div class="detail"><b>Birth order:</b> ${esc(p.birth_order)}</div>`:""}<div class="detail"><b>Father:</b> ${esc(nameOf(p.father_id))}</div><div class="detail"><b>Mother:</b> ${esc(nameOf(p.mother_id))}</div><div class="detail"><b>Spouse(s):</b> ${ss.length?ss.map(i=>`<span class="badge">${esc(nameOf(i))}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="detail"><b>Children:</b> ${cs.length?cs.map(c=>`<span class="badge">${esc(nameOf(c.id))}${birthOrderValue(c)!==null?` · ${esc(c.birth_order)}`:""}</span>`).join(""):"<small>Not recorded</small>"}</div></article>`}).join("")}
-async function load(){if(SUPABASE_URL.includes("PASTE_")||SUPABASE_ANON_KEY.includes("PASTE_")){$("status").textContent="Setup needed: replace the Supabase URL and anon/publishable key in this file, then commit it.";return}
-$("status").textContent="Loading family data…";try{const headers={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY};const [a,b]=await Promise.all([fetch(`${SUPABASE_URL}/rest/v1/raw_people_import?select=id,name,father_id,mother_id,birth_order&order=id.asc`,{headers}),fetch(`${SUPABASE_URL}/rest/v1/raw_marriages_import?select=id,person1_id,person2_id,marriage_date,notes&order=id.asc`,{headers})]);if(!a.ok)throw Error("People query failed ("+a.status+"): "+await a.text());if(!b.ok)throw Error("Marriage query failed ("+b.status+"): "+await b.text());people=await a.json();marriages=await b.json();$("status").textContent="Data loaded successfully.";render()}catch(e){$("status").textContent="Could not load data. Check the URL/key and public SELECT permissions. "+e.message}}
-$("search").addEventListener("input",render);$("reload").addEventListener("click",load);load();
+function bov(p){const n=Number(p.birth_order);return p.birth_order==null||String(p.birth_order).trim()===""||!Number.isFinite(n)?null:n}
+function cmp(a,b){const x=bov(a),y=bov(b);if(x===null&&y===null)return Number(a.id)-Number(b.id);if(x===null)return 1;if(y===null)return -1;return x-y||Number(a.id)-Number(b.id)}
+function mark(){dirty=true;localStorage.setItem("ftDraft",JSON.stringify({people,marriages}));$("status").textContent="You have unsaved edits. Download both CSV files and import them into your tables.";$("status").classList.add("warn")}
+function render(){const q=$("search").value.trim().toLowerCase();
+ const shown=people.filter(p=>!q||String(p.name||"").toLowerCase().includes(q)||String(p.id).includes(q));
+ $("count").textContent=`Showing ${shown.length} of ${people.length} people · ${marriages.length} marriage records`;
+ $("people").innerHTML=shown.map(p=>{const ss=spouses(p.id),cs=people.filter(c=>+c.father_id===+p.id||+c.mother_id===+p.id).sort(cmp);
+ const life=(p.dob||p.dod)?`<div class="detail"><b>Life:</b> ${esc(p.dob||"?")} – ${esc(p.dod||"")}</div>`:"";
+ return `<article class="card"><div class="id">Person #${esc(p.id)}${p.gender?" · "+esc(p.gender):""}</div><h2>${esc(p.name||"Unnamed person")}</h2>${bov(p)!==null?`<div class="detail"><b>Birth order:</b> ${esc(p.birth_order)}</div>`:""}${life}<div class="detail"><b>Father:</b> ${esc(nameOf(p.father_id))}</div><div class="detail"><b>Mother:</b> ${esc(nameOf(p.mother_id))}</div><div class="detail"><b>Spouse(s):</b> ${ss.length?ss.map(i=>`<span class="badge">${esc(nameOf(i))}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="detail"><b>Children:</b> ${cs.length?cs.map(c=>`<span class="badge">${esc(nameOf(c.id))}${bov(c)!==null?` · ${esc(c.birth_order)}`:""}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="act"><button data-e="${p.id}">Edit</button><button class="red" data-x="${p.id}">Delete</button></div></article>`}).join("")}
+async function load(){
+ $("status").classList.remove("warn");$("status").textContent="Loading family data…";
+ try{const headers={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY};
+  const [a,b]=await Promise.all([fetch(`${SUPABASE_URL}/rest/v1/raw_people_import?select=*&order=id.asc`,{headers}),fetch(`${SUPABASE_URL}/rest/v1/raw_marriages_import?select=*&order=id.asc`,{headers})]);
+  if(!a.ok)throw Error("People query failed ("+a.status+"): "+await a.text());
+  if(!b.ok)throw Error("Marriage query failed ("+b.status+"): "+await b.text());
+  people=await a.json();marriages=await b.json();dirty=false;$("status").textContent="Data loaded successfully.";
+  const d=localStorage.getItem("ftDraft");
+  if(d&&confirm("You have unsaved edits from last time.\nOK = continue them, Cancel = discard and use the table data.")){const o=JSON.parse(d);people=o.people;marriages=o.marriages;mark()}else localStorage.removeItem("ftDraft");
+ }catch(e){$("status").textContent="Could not load data. Check the URL/key and public SELECT permissions. "+e.message}
+ render()}
+const opts=(ex)=>'<option value="">— none —</option>'+[...people].filter(p=>+p.id!==ex).sort((a,b)=>String(a.name).localeCompare(b.name)).map(p=>`<option value="${p.id}">${esc(p.name)} (#${p.id})</option>`).join("");
+function spUi(){$("sp").innerHTML=tmpSp.length?tmpSp.map(i=>`<span class="badge">${esc(nameOf(i))}<span class="x" data-r="${i}">✕</span></span>`).join(""):"<small>None</small>";
+ $("f_sp").innerHTML='<option value="">— add a spouse —</option>'+[...people].filter(p=>+p.id!==editId&&!tmpSp.includes(+p.id)).sort((a,b)=>String(a.name).localeCompare(b.name)).map(p=>`<option value="${p.id}">${esc(p.name)} (#${p.id})</option>`).join("")}
+function openForm(p){editId=p?+p.id:null;$("dt").textContent=p?"Edit person":"Add person";
+ $("f_father").innerHTML=opts(editId);$("f_mother").innerHTML=opts(editId);
+ $("f_name").value=p?.name||"";$("f_gender").value=p?.gender||"";$("f_father").value=p?.father_id??"";$("f_mother").value=p?.mother_id??"";
+ $("f_bo").value=p?.birth_order??"";$("f_dob").value=p?.dob||"";$("f_dod").value=p?.dod||"";$("f_photo").value=p?.photo_url||"";$("f_branch").value=p?.branch||"";
+ $("f_ph").checked=String(p?.is_placeholder).toLowerCase()==="true";$("f_notes").value=p?.notes||"";
+ tmpSp=p?spouses(p.id):[];spUi();$("dlg").showModal()}
+const nx=a=>a.reduce((m,r)=>Math.max(m,+r.id||0),0)+1,nz=v=>v===""?null:+v;
+$("sv").onclick=()=>{
+ const name=$("f_name").value.trim();if(!name)return alert("Please enter a name.");
+ const id=editId??nx(people);
+ const o={id,name,gender:$("f_gender").value,father_id:nz($("f_father").value),mother_id:nz($("f_mother").value),birth_order:nz($("f_bo").value),dob:$("f_dob").value,dod:$("f_dod").value,photo_url:$("f_photo").value.trim(),branch:$("f_branch").value.trim(),is_placeholder:$("f_ph").checked?"True":"False",notes:$("f_notes").value.trim()};
+ people=editId?people.map(p=>+p.id===id?o:p):[...people,o];
+ const cur=spouses(id);
+ marriages=marriages.filter(m=>!((+m.person1_id===id&&!tmpSp.includes(+m.person2_id))||(+m.person2_id===id&&!tmpSp.includes(+m.person1_id))));
+ tmpSp.filter(s=>!cur.includes(s)).forEach(s=>marriages.push({id:nx(marriages),person1_id:id,person2_id:s,marriage_date:"",notes:""}));
+ $("dlg").close();mark();render()};
+$("cx").onclick=()=>$("dlg").close();
+$("add").onclick=()=>openForm();
+$("spadd").onclick=()=>{const v=$("f_sp").value;if(v){tmpSp.push(+v);spUi()}};
+document.body.addEventListener("click",e=>{const t=e.target;
+ if(t.dataset.e)openForm(people.find(p=>+p.id===+t.dataset.e));
+ if(t.dataset.r){tmpSp=tmpSp.filter(i=>i!==+t.dataset.r);spUi()}
+ if(t.dataset.x){const id=+t.dataset.x;if(!confirm(`Delete ${nameOf(id)}? Links to this person (as parent or spouse) will be removed.`))return;
+  people=people.filter(p=>+p.id!==id).map(p=>({...p,father_id:+p.father_id===id?null:p.father_id,mother_id:+p.mother_id===id?null:p.mother_id}));
+  marriages=marriages.filter(m=>+m.person1_id!==id&&+m.person2_id!==id);mark();render()}});
+function csv(rows,cols){const q=v=>{v=v==null?"":typeof v==="boolean"?(v?"True":"False"):String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+ return [cols.join(",")].concat([...rows].sort((a,b)=>a.id-b.id).map(r=>cols.map(c=>q(r[c])).join(","))).join("\r\n")+"\r\n"}
+function dl(name,text){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:"text/csv"}));a.download=name;a.click()}
+$("dp").onclick=()=>dl("people.csv",csv(people,PC));$("dm").onclick=()=>dl("marriages.csv",csv(marriages,MC));
+$("search").addEventListener("input",render);
+$("reload").addEventListener("click",()=>{if(dirty&&!confirm("Discard your unsaved edits and reload from the table?"))return;localStorage.removeItem("ftDraft");load()});
+load();
 </script></body></html>
