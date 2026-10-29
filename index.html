@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Family Tree</title><style>
+body{margin:0;background:#f4f7fb;color:#243047;font:16px system-ui}header,article{background:#fff}header{padding:20px;border-bottom:1px solid #dbe3ef}main{max-width:1050px;margin:auto;padding:16px}h1{margin:0}.sub,small{color:#65738a}.controls{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}input,button{font:inherit;padding:10px;border:1px solid #cbd5e1;border-radius:8px}input{flex:1;min-width:200px}button{background:#234e8a;color:white;cursor:pointer}.status{padding:12px;background:#e7eef8;border-radius:8px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.card{border:1px solid #dbe3ef;border-radius:12px;padding:14px}.card h2{font-size:1.08rem;margin:4px 0 8px}.detail{margin:6px 0;overflow-wrap:anywhere}.id{font-size:.8rem;color:#738198}.badge{display:inline-block;background:#edf3fc;border-radius:6px;padding:3px 7px;margin:2px;font-size:.8rem}footer{padding:10px 16px 30px;color:#65738a;font-size:.85rem}
+</style></head><body><header><main style="padding:0"><h1>Family Tree</h1><div class="sub">Explore people, parents, children, and marriages</div></main></header>
+<main><div class="controls"><input id="search" placeholder="Search by name or ID…"><button id="reload">Reload data</button></div><div id="status" class="status">Configure your Supabase project details in this file.</div><div id="count" class="sub"></div><div id="people" class="grid"></div></main>
+<footer>Public preview. Do not add sensitive details until login and access controls are implemented.</footer>
+<script>
+/* Replace these with your Supabase Project URL and publishable/anon key.
+   NEVER use a service_role or secret key in a public website. */
+const SUPABASE_URL="PASTE_SUPABASE_PROJECT_URL_HERE";
+const SUPABASE_ANON_KEY="PASTE_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE";
+let people=[],marriages=[];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function nameOf(id){if(id==null)return"Unknown";const p=people.find(x=>+x.id===+id);return p?p.name:`ID ${id} (not found)`}
+function spouses(id){let a=[];marriages.forEach(m=>{if(+m.person1_id===+id)a.push(+m.person2_id);else if(+m.person2_id===+id)a.push(+m.person1_id)});return [...new Set(a)]}
+function render(){const q=$("search").value.trim().toLowerCase();const shown=people.filter(p=>!q||String(p.name||"").toLowerCase().includes(q)||String(p.id).includes(q));$("count").textContent=`Showing ${shown.length} of ${people.length} people · ${marriages.length} marriage records`;
+$("people").innerHTML=shown.map(p=>{const ss=spouses(p.id),cs=people.filter(c=>+c.father_id===+p.id||+c.mother_id===+p.id).map(c=>c.id);return `<article class="card"><div class="id">Person #${esc(p.id)}</div><h2>${esc(p.name||"Unnamed person")}</h2><div class="detail"><b>Father:</b> ${esc(nameOf(p.father_id))}</div><div class="detail"><b>Mother:</b> ${esc(nameOf(p.mother_id))}</div><div class="detail"><b>Spouse(s):</b> ${ss.length?ss.map(i=>`<span class="badge">${esc(nameOf(i))}</span>`).join(""):"<small>Not recorded</small>"}</div><div class="detail"><b>Children:</b> ${cs.length?cs.map(i=>`<span class="badge">${esc(nameOf(i))}</span>`).join(""):"<small>Not recorded</small>"}</div></article>`}).join("")}
+async function load(){if(SUPABASE_URL.includes("PASTE_")||SUPABASE_ANON_KEY.includes("PASTE_")){$("status").textContent="Setup needed: replace the Supabase URL and anon/publishable key in this file, then commit it.";return}
+$("status").textContent="Loading family data…";try{const headers={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY};const [a,b]=await Promise.all([fetch(`${SUPABASE_URL}/rest/v1/raw_people_import?select=id,name,father_id,mother_id&order=id.asc`,{headers}),fetch(`${SUPABASE_URL}/rest/v1/raw_marriages_import?select=id,person1_id,person2_id,marriage_date,notes&order=id.asc`,{headers})]);if(!a.ok)throw Error("People query failed ("+a.status+"): "+await a.text());if(!b.ok)throw Error("Marriage query failed ("+b.status+"): "+await b.text());people=await a.json();marriages=await b.json();$("status").textContent="Data loaded successfully.";render()}catch(e){$("status").textContent="Could not load data. Check the URL/key and public SELECT permissions. "+e.message}}
+$("search").addEventListener("input",render);$("reload").addEventListener("click",load);load();
+</script></body></html>
