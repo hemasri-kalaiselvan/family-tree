@@ -28,7 +28,7 @@ label{display:block;margin:10px 0 2px;font-size:.85rem;color:var(--mut)}
 .pc{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:120px;max-width:100%;flex:0 1 auto}
 .pc:hover{border-color:var(--pri)}
 .pc img{width:46px;height:46px;border-radius:50%;object-fit:cover;flex:none}
-.pc .n{font-weight:600;overflow-wrap:break-word}
+.pc .n{font-weight:600;font-size:.92rem;overflow-wrap:break-word}
 .pc .t{font-size:.9rem;color:var(--ink)}
 .pc .p{font-size:.8rem;color:var(--mut)}
 .pc.ph .n{font-weight:400;color:var(--mut)}
@@ -69,6 +69,7 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .chips{display:flex;gap:6px;margin:8px 0}
 .chip{padding:5px 14px;border-radius:99px;background:#e7eef8;color:var(--pri);border:1px solid #b8c8e2;cursor:pointer;font-size:.9rem}
 .chip.on{background:var(--pri);color:#fff}
+.more{display:inline-block;color:var(--pri);font-weight:700;font-size:1.1rem;line-height:1;padding:2px 8px;background:#e7eef8;border-radius:6px;margin-top:4px}
 .mc details>summary{display:inline-block;color:var(--pri);font-weight:700;font-size:1.1rem;line-height:1;cursor:pointer;padding:2px 8px;background:#e7eef8;border-radius:6px;margin-top:4px}
 .mc .kv{margin-top:6px;font-size:.85rem}
 #top{position:fixed;right:14px;bottom:18px;width:44px;height:44px;border-radius:50%;padding:0;font-size:1.3rem;box-shadow:0 2px 8px #0004;z-index:20;display:none}
@@ -109,7 +110,7 @@ const PF=[
 ["phone","Phone","text"],["email","Email","text"],
 ["blood_group","Blood group","sel",["A+","A-","B+","B-","AB+","AB-","O+","O-"]],
 ["branch","Family line / branch","text"],
-["is_placeholder","Real name not known yet","chk"],
+["is_placeholder","Placeholder name (e.g. \"Ravi's son\")","chk"],
 ["notes","Notes","area"],["photo_url","Photo","photo"]];
 const MF=[
 ["person1_id","Person 1","person"],["person2_id","Person 2","person"],
@@ -129,11 +130,11 @@ function period(p){const b=fmtDate(p.dob),d=fmtDate(p.dod);
  if(b&&d)return`${b} – ${d}`;
  if(b)return isLate(p)?`${b} – ?`:`b. ${b}`;
  if(d)return`d. ${d}`;return""}
-const dispName=p=>(isLate(p)&&!p.is_placeholder?"Late ":"")+(p.name||"Unnamed");
+const dispName=p=>(isLate(p)?"Late ":"")+(p.name||"Unnamed");
 const nm=id=>{const p=P(id);return p?dispName(p):""};
 function card(p){
  const per=period(p);
- return`<a class="pc ${p.is_placeholder?"ph":""}" href="#/person/${p.id}">`+
+ return`<a class="pc" href="#/person/${p.id}">`+
  (p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
  `<div><div class="n">${esc(dispName(p))}</div>`+
  
@@ -205,7 +206,7 @@ function viewTree(app,T){
  let html="";
  roots.forEach(r=>{if(!shown.has(r.id))html+=`<div class="sec">${unit(r,0)}</div>`});
  const others=pool.filter(isolated);
- app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family</h2><div class="mut">${pool.length} people · tap a name for full record · tap ▸ to expand</div>
+ app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2><div class="mut">${pool.length} people · tap a name for full record · tap ▸ to expand</div>
  <div class="tools"><button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=true)">Expand all</button>
  <button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=false)">Collapse all</button></div>
  ${html||'<div class="status">No people yet.</div>'}
@@ -217,7 +218,7 @@ const lk=p=>`<a class="lk" href="#/person/${p.id}">${esc(dispName(p))}</a>`;
 const lk0=ps=>ps.map(lk).join(", ");
 const lks=ps=>ps.map(p=>lk(p)+(bo(p)!==null?`<span class="mut"> · ${esc(p.birth_order)}</span>`:"")).join(", ");
 const TL={vetri:"Vetri",rajmohan:"Raj"};
-const SHOWN=new Set(["name","father_id","mother_id","photo_url","dob","dod","profession","current_location","tree","life_status","is_late"]);
+const SHOWN=new Set(["is_placeholder","name","father_id","mother_id","photo_url","dob","dod","profession","current_location","tree","life_status","is_late"]);
 function moreRows(p){
  return PF.filter(([k])=>!SHOWN.has(k)&&p[k]!=null&&p[k]!==""&&!(k==="is_placeholder"&&!p[k])).map(([k,l,t])=>{
   let v=p[k];
@@ -243,7 +244,7 @@ function rec(p,full){
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
   ${ln("Spouse",spH)}${ln("Children",lks(kids))}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
-  ${(()=>{const r=moreRows(p);if(!r)return full&&!role?`<p class="mut">Sign in to see private details.</p>`:"";return full?`<div class="kv" style="margin-top:8px">${r}</div>`:`<details><summary title="More details">⋯</summary><div class="kv">${r}</div></details>`})()}</div>`}
+  ${(()=>{const r=moreRows(p);if(!r)return full&&!role?`<p class="mut">Sign in to see private details.</p>`:"";return full?`<div class="kv" style="margin-top:8px">${r}</div>`:""})()}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a>`}</div>`}
 
 function viewMembers(app){
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
