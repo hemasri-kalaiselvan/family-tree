@@ -104,10 +104,11 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hcp .heart{text-align:center;line-height:.9;font-size:.8rem}
 .hmore{font-size:.72rem;color:var(--pri);text-align:center;padding:2px 0;font-weight:600}
 .hwrap{position:relative}
-.hk{display:flex;flex-direction:column;gap:14px;margin-left:34px}
+.hk{display:flex;flex-direction:column;gap:14px;margin-left:56px}
+.hc{position:relative;z-index:1}
 .hgrp{display:flex;flex-direction:column;gap:8px}
 .hlab{font-size:.7rem;font-weight:600;color:var(--mut)}
-.hsv{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.hsv{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
 .hdup{font-size:.7rem;color:var(--mut);text-align:center;margin-top:2px}
 </style></head><body>
 <header><div class="top">
@@ -297,8 +298,11 @@ function hourHtml(T,pool){
  return h+`</div>`}
 
 
-/* connector lines for the horizontal layout: each line starts at the exact parent card (the wife's, for her kids) and ends at each child's card */
+/* connector lines for the horizontal layout.
+   Every person is drawn once. Marriages inside the family (both people placed in different spots) are joined by a thick dotted line;
+   the children's line starts from the middle of that dotted line. */
 const HCOL=["#d98aa6","#6fa3d6","#7fbf8a","#d4a95f","#a28bd4"];
+const LCOL=["#e6194b","#0077b6","#f58231","#7b2cbf","#00897b","#c2185b","#6d4c41"];
 let hRO=null;
 function hLines(){
  const w=document.querySelector(".hwrap");if(!w)return;
@@ -306,19 +310,35 @@ function hLines(){
   const old=w.querySelector("svg.hsv");if(old)old.remove();
   const wr=w.getBoundingClientRect(),W=w.scrollWidth,H=w.scrollHeight;
   const X=r=>r.left-wr.left-w.clientLeft+w.scrollLeft,Y=r=>r.top-wr.top-w.clientTop+w.scrollTop;
-  const paths=[];
+  const card=id=>w.querySelector(`.hc[data-c="${id}"] .pc`);
+  const key=(a,b)=>(+a<+b)?a+"-"+b:b+"-"+a;
+  const links={},lanes={},out=[];let li=0;
+  (w.dataset.pairs||"").split(",").filter(Boolean).forEach(k=>{
+   const [a,b]=k.split("-"),ca=card(a),cb=card(b);if(!ca||!cb)return;
+   if(ca.closest(".hcp")===cb.closest(".hcp"))return;
+   const A=ca.getBoundingClientRect(),B=cb.getBoundingClientRect();
+   const ax=X(A),bx=X(B),ay=Y(A)+A.height/2,by=Y(B)+B.height/2;
+   const same=Math.abs(ax-bx)<6;
+   const base=Math.round(same?Math.max(ax+A.width,bx+B.width)+8:(ax<bx?ax+A.width:bx+B.width)+8);
+   const n=lanes[base]=(lanes[base]||0)+1,lx=base+4*((n-1)%5);
+   const col=LCOL[li++%LCOL.length];
+   const ea=ax+A.width<=lx?ax+A.width:ax,eb=bx+B.width<=lx?bx+B.width:bx;
+   links[k]={mx:lx,my:(ay+by)/2,col};
+   out.push(`<path d="M${ea} ${ay}H${lx}V${by}H${eb}" fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="0.1 7"/>`);
+   out.push(`<circle cx="${lx}" cy="${(ay+by)/2}" r="4.5" fill="${col}"/>`)});
   w.querySelectorAll(".hgrp").forEach(g=>{
-   const hn=g.closest(".hn");
-   const sc=hn.querySelector(`:scope > .hcp > .hc[data-c="${g.dataset.from}"] .pc`);if(!sc)return;
-   const s=sc.getBoundingClientRect(),sx=X(s)+s.width,sy=Y(s)+s.height/2;
+   const sc=card(g.dataset.from);if(!sc)return;
+   const s=sc.getBoundingClientRect();
+   let sx=X(s)+s.width,sy=Y(s)+s.height/2,col=g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc",sw=1.6;
+   const o=g.dataset.other,lk=o?links[key(g.dataset.from,o)]:null;
+   if(lk){sx=lk.mx;sy=lk.my;col=lk.col;sw=2.2}
    const ks=[...g.querySelectorAll(":scope > .hkid")].map(k=>k.querySelector(".hcp .pc")).filter(Boolean).map(e=>e.getBoundingClientRect());
    if(!ks.length)return;
    const kx=Math.min(...ks.map(X)),bus=kx-14,ys=ks.map(r=>Y(r)+r.height/2);
    let p=`M${sx} ${sy}H${bus}M${bus} ${Math.min(sy,...ys)}V${Math.max(sy,...ys)}`;
    ks.forEach((r,i)=>{p+=`M${bus} ${ys[i]}H${X(r)}`});
-   paths.push([p,g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc"])});
-  const svg=`<svg class="hsv" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${paths.map(([p,c])=>`<path d="${p}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linejoin="round"/>`).join("")}</svg>`;
-  w.insertAdjacentHTML("afterbegin",svg)};
+   out.push(`<path d="${p}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`)});
+  w.insertAdjacentHTML("afterbegin",`<svg class="hsv" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${out.join("")}</svg>`)};
  requestAnimationFrame(draw);
  if(hRO)hRO.disconnect();
  const root=w.querySelector(":scope > .hn");
@@ -333,28 +353,54 @@ function horizHtml(T,pool){
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
  let root=P(st[T])||roots[0]||pool[0];
  st[T]=root.id;
- const drawn=new Set();
- const hc=p=>`<div class="hc" data-c="${p.id}">${card(p)}</div>`;
- function node(p,d,path){
-  if(drawn.has(p.id))return`<div class="hn"><div class="hcp">${hc(p)}<div class="hdup">↑ shown above</div></div></div>`;
-  const sps=spouseIds(p.id).map(P).filter(Boolean);
+ /* 1. who is in the chart (by generation); 'home' = the parent under whom each child is placed, so everyone appears once */
+ const feeds=x=>[x,...spouseIds(x).filter(i=>P(i)&&!hasPar(P(i)))];
+ const depth=new Map([[root.id,1]]),home=new Map(),q=[root.id];
+ while(q.length){const x=q.shift(),dx=depth.get(x);if(dx>=depthN)continue;
+  feeds(x).forEach(i=>childrenOf(i).forEach(c=>{if(!depth.has(c.id)){depth.set(c.id,dx+1);home.set(c.id,x);q.push(c.id)}}))}
+ /* 2. build the placement tree */
+ const placed=new Set(),pairs=new Set();
+ const pk=(a,b)=>a<b?a+"-"+b:b+"-"+a;
+ const grpKey=(p,ids,c)=>{
+  const pars=[c.father_id,c.mother_id].filter(Boolean);
+  const o=pars.includes(p.id)?pars.find(i=>i!==p.id):(pars.find(i=>ids.includes(i))||pars[0]);
+  if(o==null)return"s";
+  if(ids.includes(o))return"c"+o;
+  if(P(o)&&(depth.has(o)||placed.has(o)))return"l"+o;
+  return"s"};
+ function build(p){
+  placed.add(p.id);
+  const sps=spouseIds(p.id).map(P).filter(s=>s&&!depth.has(s.id)&&!placed.has(s.id));
+  sps.forEach(s=>placed.add(s.id));
   const ids=[p.id,...sps.map(s=>s.id)];
-  ids.forEach(i=>drawn.add(i));
-  const np=path.concat(ids);
-  const src=c=>[c.father_id,c.mother_id].find(i=>i!==p.id&&ids.includes(i))||p.id;
-  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id));
-  const box=`<div class="hcp">${hc(p)}${sps.map(s=>`<span class="heart">♥</span>${hc(s)}`).join("")}${kids.length&&d>=depthN?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${p.id})">${kids.length} ${kids.length>1?"children":"child"} ▸</a>`:""}</div>`;
-  if(!kids.length||d>=depthN)return`<div class="hn">${box}</div>`;
-  const groups=ids.map(i=>[i,kids.filter(c=>src(c)===i).sort(cmp)]).filter(([,g])=>g.length);
-  const multi=groups.length>1;
-  const lab=i=>i===p.id?"other / unlisted":"with "+esc(dispName(P(i)));
-  return`<div class="hn">${box}<div class="hk">${groups.map(([i,g],gi)=>`<div class="hgrp" data-from="${i}" data-gi="${gi}" data-multi="${multi?1:0}">${multi?`<div class="hlab">${lab(i)}</div>`:""}${g.map(k=>`<div class="hkid">${node(k,d+1,np)}</div>`).join("")}</div>`).join("")}</div></div>`}
+  spouseIds(p.id).forEach(s=>{if(P(s)&&!ids.includes(s)&&(depth.has(s)||placed.has(s)))pairs.add(pk(p.id,s))});
+  const homed=people.filter(c=>home.get(c.id)===p.id&&!placed.has(c.id));
+  const gs=new Map();
+  homed.forEach(c=>{const k=grpKey(p,ids,c);if(!gs.has(k))gs.set(k,[]);gs.get(k).push(c)});
+  const ord=k=>k==="s"?0:k[0]==="c"?1+ids.indexOf(+k.slice(1)):100;
+  const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>{
+   if(k[0]==="l")pairs.add(pk(p.id,+k.slice(1)));
+   return{k,kids:g.sort(cmp).map(build)}});
+  const hidden=[...new Set(feeds(p.id).concat(sps.map(s=>s.id)).flatMap(i=>childrenOf(i).filter(c=>!depth.has(c.id)).map(c=>c.id)))].length;
+  return{p,sps,groups,hidden}}
+ const tree=build(root);
+ /* 3. draw */
+ const hc=p=>`<div class="hc" data-c="${p.id}">${card(p)}</div>`;
+ function render(n){
+  const stack=`<div class="hcp">${hc(n.p)}${n.sps.map(s=>`<span class="heart">♥</span>${hc(s)}`).join("")}${n.hidden?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${n.hidden} ${n.hidden>1?"children":"child"} ▸</a>`:""}</div>`;
+  if(!n.groups.length)return`<div class="hn">${stack}</div>`;
+  const multi=n.groups.length>1;
+  return`<div class="hn">${stack}<div class="hk">${n.groups.map((g,gi)=>{
+   const t=g.k[0],id=+g.k.slice(1),o=P(id);
+   const from=t==="c"?id:n.p.id,other=t==="l"?id:"";
+   const lab=t==="s"?"other / unlisted":"with "+esc(dispName(o));
+   return`<div class="hgrp" data-from="${from}" data-other="${other}" data-gi="${gi}" data-multi="${multi?1:0}">${multi?`<div class="hlab">${lab}</div>`:""}${g.kids.map(k=>`<div class="hkid">${render(k)}</div>`).join("")}</div>`}).join("")}</div></div>`}
  const cand=people.filter(hasKids).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
  if(!cand.includes(root))cand.unshift(root);
  return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(+this.value)">${cand.map(p=>`<option value="${p.id}" ${p.id===root.id?"selected":""}>${esc(dispName(p))}</option>`).join("")}</select>
  <select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
  <div class="mut">Scroll sideways · tap a name for the full record · tap "children ▸" to start from there</div>
- <div class="hwrap">${node(root,1,[])}</div>`}
+ <div class="hwrap" data-pairs="${[...pairs].join(",")}">${render(tree)}</div>`}
 
 /* ---------- Members + record ---------- */
 let q="",mf="all";
