@@ -82,7 +82,7 @@ const P=id=>people.find(p=>p.id===id);
 
 /* ---------- field definitions: [key,label,type,extra] ---------- */
 const PF=[
-["name","Name (English)","text"],["name_ta","Name (தமிழ்)","text"],["nickname","Nickname","text"],
+["name","Name (English)","text"],["tree","Family tree","sel",["vetri","rajmohan"]],["name_ta","Name (தமிழ்)","text"],["nickname","Nickname","text"],
 ["gender","Gender","sel",["male","female","other"]],
 ["father_id","Father","person"],["mother_id","Mother","person"],["birth_order","Birth order among siblings","num"],
 ["dob","Date of birth","date"],["birth_time","Time of birth","time"],["birth_place","Place of birth","text"],
@@ -136,9 +136,9 @@ async function load(){
  const {data:{session:s}}=await sb.auth.getSession();session=s;role=null;
  if(s){const r=await sb.from("ft_app_users").select("role").eq("user_id",s.user.id).maybeSingle();role=r.data?.role||null}
  const full=!!role;
- const [a,b]=await Promise.all([
-  sb.from(full?"ft_people":"family_public_people").select("*").order("id"),
-  sb.from(full?"ft_marriages":"family_public_marriages").select("*").order("id")]);
+ const [a,b]=await Promise.all(full?[
+  sb.from("ft_people").select("*").order("id"),sb.from("ft_marriages").select("*").order("id")]:[
+  sb.rpc("ft_public",{tbl:"ft_people"}),sb.rpc("ft_public",{tbl:"ft_marriages"})]);
  if(a.error||b.error){loadErr=(a.error||b.error).message;people=[];marriages=[]}
  else{people=a.data;marriages=b.data}
  renderNav();route()}
@@ -147,9 +147,9 @@ sb.auth.onAuthStateChange(()=>setTimeout(load,0));
 /* ---------- nav / routing ---------- */
 function renderNav(){
  const h=location.hash.slice(1)||"/";
- const items=[["/","Family Tree"],["/members","Members"],["/couples","Couples"]];
+ const items=[["/vetri","Vetri"],["/rajmohan","Rajmohan"],["/members","Members"]];
  if(canEdit())items.push(["/add","+ Add Member"]);
- $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("");
+ $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/vetri"&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
 window.addEventListener("hashchange",()=>{renderNav();route();window.scrollTo(0,0)});
@@ -161,13 +161,16 @@ function route(){
  if(a==="login")return viewLogin(app);
  if(loadErr){app.innerHTML=`<div class="status warn">Could not load data: ${esc(loadErr)}<br>Did you run schema.sql in Supabase?</div>`;return}
  if(a==="members")return viewMembers(app);
- if(a==="couples")return viewCouples(app);
  if(a==="person")return viewPerson(app,+b);
  if(a==="add"){if(canEdit()){app.innerHTML="";openPerson()}else location.hash="#/login";return}
- viewTree(app)}
+ if(a==="rajmohan")return viewTree(app,"rajmohan");
+ viewTree(app,"vetri")}
 
 /* ---------- Tree (home) ---------- */
-function viewTree(app){
+let curTree="vetri";
+function viewTree(app,T){
+ curTree=T;
+ const pool=people.filter(p=>p.tree===T);
  const hasPar=p=>p.father_id||p.mother_id;
  const shown=new Set(),expanded=new Set();
  function unit(p,depth){
@@ -180,13 +183,13 @@ function viewTree(app){
   const couple=`<div class="couple">${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}</div>`;
   if(!kids.length)return`<div>${couple}</div>`;
   return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1)).join("")}</div></details>`}
- const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&hasPar(P(s)));
+ const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const isolated=p=>!hasPar(p)&&!spouseIds(p.id).length&&!childrenOf(p.id).length;
- const roots=people.filter(p=>!hasPar(p)&&!inlaw(p)&&!isolated(p)).sort((a,b)=>a.id-b.id);
+ const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&!isolated(p)).sort((a,b)=>a.id-b.id);
  let html="";
  roots.forEach(r=>{if(!shown.has(r.id))html+=`<div class="sec">${unit(r,0)}</div>`});
- const others=people.filter(isolated);
- app.innerHTML=`<h2>Family Tree</h2><div class="mut">${people.length} people · tap a name for full record · tap ▸ to expand</div>
+ const others=pool.filter(isolated);
+ app.innerHTML=`<h2>${T==="rajmohan"?"Rajmohan":"Vetri"} family</h2><div class="mut">${pool.length} people · tap a name for full record · tap ▸ to expand</div>
  <div class="tools"><button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=true)">Expand all</button>
  <button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=false)">Collapse all</button></div>
  ${html||'<div class="status">No people yet.</div>'}
@@ -202,16 +205,6 @@ function viewMembers(app){
   $("#cnt").textContent=`${r.length} of ${people.length}`;$("#list").innerHTML=r.map(card).join("")};
  $("#q").oninput=e=>{q=e.target.value;draw()};draw()}
 
-/* ---------- Couples ---------- */
-function viewCouples(app){
- const list=[...marriages].sort((a,b)=>a.id-b.id);
- app.innerHTML=`<h2>Couples</h2><div class="mut">${list.length} marriages</div>`+list.map(m=>{
-  const a=P(m.person1_id),b=P(m.person2_id);if(!a||!b)return"";
-  const bits=[m.status&&m.status!=="married"?m.status:"",m.engagement_date?"Engaged "+fmtDate(m.engagement_date):"",m.marriage_date?"Wedding "+fmtDate(m.marriage_date):"",m.wedding_place].filter(Boolean).join(" · ");
-  return`<div class="sec"><div class="couple">${card(a)}<span class="heart">♥</span>${card(b)}</div>${bits?`<div class="mut">${esc(bits)}</div>`:""}
-  ${canEdit()?`<div class="row"><button class="alt" onclick="openMarriage(${m.id})">Edit</button><button class="red" onclick="delMarriage(${m.id})">Delete</button></div>`:""}</div>`}).join("")+
-  (canEdit()?`<div class="row"><button onclick="openMarriage()">+ Add couple</button></div>`:"")}
-
 /* ---------- Person page ---------- */
 function viewPerson(app,id){
  const p=P(id);
@@ -220,7 +213,7 @@ function viewPerson(app,id){
  const ms=marriages.filter(m=>m.person1_id===id||m.person2_id===id);
  const spHtml=ms.length?ms.map(m=>{const o=P(m.person1_id===id?m.person2_id:m.person1_id);if(!o)return"";
   const bits=[m.status&&m.status!=="married"?m.status:"",m.engagement_date?"Engaged "+fmtDate(m.engagement_date)+(m.engagement_place?" at "+m.engagement_place:""):"",m.marriage_date?"Wedding "+fmtDate(m.marriage_date)+(m.wedding_place?" at "+m.wedding_place:""):"",m.end_date?"Ended "+fmtDate(m.end_date):""].filter(Boolean).join(" · ");
-  return`${card(o)}${bits?`<div class="mut" style="margin:2px 0 6px 6px">${esc(bits)}</div>`:""}`}).join(""):`<span class="mut">Not recorded</span>`;
+  return`${card(o)}${bits?`<div class="mut" style="margin:2px 0 6px 6px">${esc(bits)}</div>`:""}${canEdit()?`<div class="row" style="margin:4px 0 8px"><button class="alt" onclick="openMarriage(${m.id})">Edit marriage</button><button class="red" onclick="delMarriage(${m.id})">Delete marriage</button></div>`:""}`}).join(""):`<span class="mut">Not recorded</span>`;
  const par=[p.father_id,p.mother_id].map(P).filter(Boolean);
  const rows=PF.filter(([k])=>!["photo_url"].includes(k)&&p[k]!=null&&p[k]!==""&&!(k==="is_placeholder"&&!p[k])).map(([k,l,t])=>{
   let v=p[k];
@@ -284,14 +277,14 @@ async function upPhoto(inp,id){const f=inp.files[0];if(!f)return;
  }catch(e){$("#msg").textContent="Photo upload failed: "+e.message}}
 
 function openPerson(id,preset){
- const rec=id?P(id):(preset||{life_status:"unknown"});
+ const rec=id?P(id):(preset||{life_status:"unknown",tree:curTree});
  openForm(id?"Edit person":"Add member",PF,rec,async o=>{
   if(!o.name)return"Name is required";
   const r=id?await sb.from("ft_people").update(o).eq("id",id).select().single():await sb.from("ft_people").insert(o).select().single();
   if(r.error)return r.error.message;
   await load();location.hash="#/person/"+r.data.id})}
 function addChild(pid){const p=P(pid);
- openPerson(null,{life_status:"unknown",[p.gender==="female"?"mother_id":"father_id"]:pid,branch:p.branch})}
+ openPerson(null,{life_status:"unknown",tree:p.tree,[p.gender==="female"?"mother_id":"father_id"]:pid,branch:p.branch})}
 async function delPerson(id){
  if(!confirm(`Delete ${nm(id)}? Their marriages are removed; children keep their record but lose this parent link.`))return;
  const {error}=await sb.from("ft_people").delete().eq("id",id);
@@ -315,11 +308,13 @@ function viewLogin(app){
   <div id="s1"><label>Email</label><input id="em" type="email" autocomplete="email"><div class="row"><button id="go">Send code</button></div></div>
   <div id="s2" hidden><label>Code from your email</label><input id="cd" inputmode="numeric" autocomplete="one-time-code"><div class="row"><button id="vf">Verify</button></div></div></div>`;
  $("#go").onclick=async()=>{const email=$("#em").value.trim();if(!email)return;
-  const {error}=await sb.auth.signInWithOtp({email});
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
   if(error)return $("#lm").textContent=error.message;
   $("#s1").hidden=true;$("#s2").hidden=false;$("#lm").textContent="Code sent to "+email};
  $("#vf").onclick=async()=>{
-  const {error}=await sb.auth.verifyOtp({email:$("#em").value.trim(),token:$("#cd").value.trim(),type:"email"});
+  const em=$("#em").value.trim(),tk=$("#cd").value.trim();
+  let {error}=await sb.auth.verifyOtp({email:em,token:tk,type:"email"});
+  if(error)({error}=await sb.auth.verifyOtp({email:em,token:tk,type:"signup"}));
   if(error)return $("#lm").textContent=error.message;location.hash="#/"};
  /* Phone OTP (needs a paid SMS provider in Supabase):
     sb.auth.signInWithOtp({phone:"+91XXXXXXXXXX"}) then sb.auth.verifyOtp({phone,token,type:"sms"}) */
