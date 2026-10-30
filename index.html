@@ -198,10 +198,11 @@ function viewTree(app,T){
  function unit(p,depth){
   const sps=spouseIds(p.id).map(P).filter(Boolean);
   const ids=[p.id,...sps.map(s=>s.id)];
+  const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
   ids.forEach(i=>shown.add(i));
   let kids=[];
   if(!expanded.has(p.id)){ids.forEach(i=>expanded.add(i));
-   kids=people.filter(c=>ids.includes(c.father_id)||ids.includes(c.mother_id)).sort(cmp)}
+   kids=people.filter(c=>ids.includes(c.father_id)||ids.includes(c.mother_id)).sort((x,y)=>key(x)-key(y)||cmp(x,y))}
   const couple=`<div class="couple">${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}</div>`;
   if(!kids.length)return`<div>${couple}</div>`;
   return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1)).join("")}</div></details>`}
@@ -254,7 +255,12 @@ function rec(p,full){
    if(canEdit())extra+=` <a class="lk" href="javascript:openMarriage(${m.id})">✎</a> <a class="lk" style="color:var(--red)" href="javascript:delMarriage(${m.id})">🗑</a>`}
   return lk(o)+extra}).join(", ");
  const kids=childrenOf(id),sibs=siblingsOf(p);
- const gk=full?kids.flatMap(c=>childrenOf(c.id)):[];
+ const oth=c=>c.father_id===id?c.mother_id:c.father_id,seen=new Set(),groups=[];
+ sps.forEach(({o})=>{if(seen.has(o.id))return;seen.add(o.id);const g=kids.filter(c=>oth(c)===o.id);if(g.length)groups.push([o,g])});
+ const used=new Set(groups.flatMap(([,g])=>g.map(c=>c.id))),rest=kids.filter(c=>!used.has(c.id));
+ const okids=groups.flatMap(([,g])=>g).concat(rest);
+ const kidsH=groups.length>1||(groups.length&&rest.length)?`<div class="ml"><b>Children:</b></div>`+groups.map(([o,g])=>`<div class="ml" style="margin-left:14px"><b>with ${esc(o.name)}:</b> ${lks(g)}</div>`).join("")+(rest.length?`<div class="ml" style="margin-left:14px"><b>other:</b> ${lks(rest)}</div>`:""):ln("Children",lks(kids));
+ const gk=full?okids.flatMap(c=>childrenOf(c.id)):[];
  const sub=[p.profession,p.current_location].filter(Boolean).join(" · ");
  return`<div class="mc ${full?"full":""}"><div class="mh"><div>
   ${full?`<div class="nm" style="font-size:1.25rem">${esc(dispName(p))}</div>`:`<a class="nm" href="#/person/${id}">${esc(dispName(p))}</a>`}
@@ -262,7 +268,7 @@ function rec(p,full){
   ${per?`<div class="mut">${esc(per)}</div>`:""}${sub?`<div class="mut">${esc(sub)}</div>`:""}</div>
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
-  ${ln("Spouse",spH)}${ln("Children",lks(kids))}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
+  ${ln("Spouse",spH)}${kidsH}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
   ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a>`}</div>`}
 
 function viewMembers(app){
