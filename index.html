@@ -37,8 +37,6 @@ label{display:block;margin:10px 0 2px;font-size:.85rem;color:var(--mut)}
 .couple .heart{color:#c2185b}
 details>summary{cursor:pointer;list-style:none}
 details>summary::-webkit-details-marker{display:none}
-.tw>summary .couple::before{content:"▸";color:var(--mut);margin-right:2px}
-.tw[open]>summary .couple::before{content:"▾"}
 .kids{margin-left:14px;border-left:2px solid #c5d2e6;padding-left:10px}
 .tools{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
@@ -89,6 +87,8 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .pc .n{font-size:.8rem;line-height:1.2}
 .pc .p{font-size:.68rem}
 .kids{margin-left:10px;padding-left:8px}
+.tg{flex:none;width:34px;display:flex;align-items:center;justify-content:center;color:var(--pri);font-size:1.15rem;margin-right:8px;cursor:pointer;user-select:none;transition:transform .15s}
+.tw[open]>summary .tg{transform:rotate(90deg)}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
@@ -215,7 +215,7 @@ function viewTree(app,T){
   ids.forEach(i=>shown.add(i));
   const np=path.concat(ids);
   const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-  const couple=`<div class="couple">${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}</div>`;
+  const couple=`<div class="couple">${kids.length?`<span class="tg">▸</span>`:""}${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}</div>`;
   if(!kids.length)return`<div>${couple}</div>`;
   return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1,np)).join("")}</div></details>`}
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
@@ -293,7 +293,7 @@ function viewMembers(app){
  let shown=[];
  const bar=()=>{$("#bulk").hidden=!selMode;document.body.classList.toggle("bulkon",selMode);$("#bc").textContent=sel.size+" selected"};
  const draw=()=>{$("#qc").hidden=!q;const t=q.trim().toLowerCase();
-  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(!t||[p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
+  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   shown=r.map(p=>p.id);
   $("#cnt").textContent=`${r.length} of ${people.length}`;
@@ -385,6 +385,7 @@ async function upPhoto(inp,id){const f=inp.files[0];if(!f)return;
 function openPerson(id,preset){
  const rec=id?P(id):(preset||{life_status:"unknown",tree:curTree});
  openForm(id?"Edit person":"Add member",PF,rec,async o=>{
+  if(o.name)o.name=o.name.replace(/^\s*late\s+/i,"");
   if(!o.name)return"Name is required";
   const r=id?await sb.from("ft_people").update(o).eq("id",id).select().single():await sb.from("ft_people").insert(o).select().single();
   if(r.error)return r.error.message;
