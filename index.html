@@ -34,6 +34,7 @@ label{display:block;margin:10px 0 2px;font-size:.85rem;color:var(--mut)}
 .pc .n{font-weight:600;font-size:.92rem;overflow-wrap:break-word}
 .pc .t{font-size:.9rem;color:var(--ink)}
 .pc .p{font-size:.8rem;color:var(--mut)}
+.nw{white-space:nowrap}
 .pc.ph .n{font-weight:400;color:var(--mut)}
 /* tree */
 .couple{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
@@ -102,8 +103,9 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hgk{margin-top:12px}.hgk>summary{color:var(--pri);font-weight:600;text-align:center}
 .hwrap{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;padding:10px 8px 16px;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px}
 .hn{display:flex;align-items:center;width:max-content}
-.hcp{display:flex;flex-direction:column;gap:1px;width:128px;flex:none}
+.hcp{display:flex;flex-direction:column;gap:1px;width:176px;flex:none}
 .hcp .pc{min-width:0;width:100%}
+.hcp .pc .p{white-space:nowrap;font-size:.66rem}
 .hcp .heart{text-align:center;line-height:.9;font-size:.8rem;position:relative;z-index:1}
 .hmore{font-size:.72rem;color:var(--pri);text-align:center;padding:2px 0;font-weight:600}
 .hwrap{position:relative}
@@ -112,7 +114,8 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hgrp{display:flex;flex-direction:column;gap:20px}
 .hlab{font-size:.7rem;font-weight:600;color:var(--mut)}
 .hsv{position:absolute;left:0;top:0;pointer-events:none;overflow:hidden;z-index:0}
-.hwrap>.hn{padding-right:48px}
+.hroots{display:flex;flex-direction:column;gap:40px;width:max-content;padding-right:56px}
+.hsv.tp{z-index:2}
 .hdup{font-size:.7rem;color:var(--mut);text-align:center;margin-top:2px}
 </style></head><body>
 <header><div class="top">
@@ -163,6 +166,7 @@ const MF=[
 
 /* ---------- helpers ---------- */
 function fmtDate(s){if(!s)return"";let m;
+ if(m=s.match(/^--(\d{2})-(\d{2})$/))return`${m[2]}-${m[1]}`;
  if(/^\d{4}$/.test(s))return s;
  if(m=s.match(/^(\d{4})-(\d{2})$/))return`${m[2]}-${m[1]}`;
  if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/))return`${m[3]}-${m[2]}-${m[1]}`;
@@ -170,6 +174,10 @@ function fmtDate(s){if(!s)return"";let m;
 function normTime(v){if(!v)return"";const m=String(v).trim().match(/^(\d{1,2}):(\d{2})\s*([ap]m)?$/i);if(!m)return"";let h=+m[1];const ap=(m[3]||"").toLowerCase();if(ap==="pm"&&h<12)h+=12;if(ap==="am"&&h===12)h=0;return String(h).padStart(2,"0")+":"+m[2]}
 function fmtTime(v){const t=normTime(v);if(!t)return String(v||"");let[h,mi]=t.split(":").map(Number);const ap=h>=12?"PM":"AM";h=h%12||12;return h+":"+String(mi).padStart(2,"0")+" "+ap}
 const isLate=p=>p.is_late??(p.life_status==="deceased"||!!p.dod);
+function periodHtml(p){const b=fmtDate(p.dob),d=fmtDate(p.dod),n=x=>`<span class="nw">${esc(x)}</span>`;
+ if(b&&d)return`${n(b)} – ${n(d)}`;
+ if(b)return isLate(p)?`${n(b)} – ?`:n(b);
+ if(d)return`d. ${n(d)}`;return""}
 function period(p){const b=fmtDate(p.dob),d=fmtDate(p.dod);
  if(b&&d)return`${b} – ${d}`;
  if(b)return isLate(p)?`${b} – ?`:b;
@@ -183,7 +191,7 @@ function card(p,o){
  return`<a class="pc${num?" hb":""}" href="#/person/${p.id}">`+
  (num?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:"")+(p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
  `<div><div class="n">${esc(dispName(p))}</div>`+
- (per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
+ (per?`<div class="p">${periodHtml(p)}</div>`:"")+`</div></a>`}
 const cardNN=p=>card(p,{nn:1});
 const bo=p=>{const n=Number(p.birth_order);return p.birth_order==null||!isFinite(n)?null:n};
 function cmp(a,b){const x=bo(a),y=bo(b);if(x===null&&y===null)return a.id-b.id;if(x===null)return 1;if(y===null)return-1;return x-y||a.id-b.id}
@@ -235,7 +243,7 @@ function fcard(p,cur){
  const per=period(p);
  return`<a class="pc ${cur?"cur":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
  (p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
- `<div><div class="n">${esc(dispName(p))}</div>`+(per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
+ `<div><div class="n">${esc(dispName(p))}</div>`+(per?`<div class="p">${periodHtml(p)}</div>`:"")+`</div></a>`}
 function refocus(id){fo[curTree]=id;window.scrollTo(0,0);window.drawLay&&window.drawLay()}
 function hstart(id){st[curTree]=id;window.drawLay&&window.drawLay()}
 function hdepth(v){depthV=v;depthN=v==="all"?99:+v;window.drawLay&&window.drawLay()}
@@ -262,7 +270,7 @@ function treeHtml(T,pool){
   ids.forEach(i=>shown.add(i));
   const np=path.concat(ids);
   const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-  const couple=`<div class="couple">${kids.length?`<span class="tg">▸</span>`:""}${cardNN(p)}${sps.map(s=>`<span class="heart">♥</span>${cardNN(s)}`).join("")}</div>`;
+  const couple=`<div class="couple"><span class="tg">${kids.length?"▸":""}</span>${cardNN(p)}${sps.map(s=>`<span class="heart">♥</span>${cardNN(s)}`).join("")}</div>`;
   if(!kids.length)return`<div>${couple}</div>`;
   return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1,np)).join("")}</div></details>`}
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
@@ -307,74 +315,140 @@ function hourHtml(T,pool){
 /* connector lines for the horizontal layout.
    RULES
    1. Spouses shown together (heart between them): the children's line starts at that heart.
-   2. Spouses shown in different places: a thick dotted line runs from the bottom-middle of the upper spouse
-      to the top-middle of the lower spouse; the children's line branches off that dotted line just below the upper spouse.
+   2. Spouses shown in different places: a thick dotted line in its own colour joins them. It is routed around every box
+      (never behind one) and never runs along another line (it may only cross). The children's line branches off that dotted
+      line right beside the parent who is shown first.
    3. Every vertical line gets its own lane, so two lines never run on top of each other (they may only cross). */
 const HCOL=["#d98aa6","#6fa3d6","#7fbf8a","#d4a95f","#a28bd4"];
 const LCOL=["#e6194b","#0077b6","#2e9e47","#7b2cbf","#e08a00","#00a6a6","#6d4c41"];
 let hRO=null;
+
+/* grid router: orthogonal path from S to E that avoids boxes and prefers not to share a lane with an existing line */
+function hRoute(S,E,obst,segs,W,H){
+ const g=6;
+ for(const m of [[170,120],[600,400]]){
+  const xmin=Math.max(0,Math.min(S[0],E[0])-m[0]),xmax=Math.min(W+80,Math.max(S[0],E[0])+m[0]);
+  const ymin=Math.max(0,Math.min(S[1],E[1])-m[1]),ymax=Math.min(H+40,Math.max(S[1],E[1])+m[1]);
+  const ox=S[0]-g*Math.floor((S[0]-xmin)/g),oy=S[1]-g*Math.floor((S[1]-ymin)/g);
+  const cw=Math.ceil((xmax-ox)/g)+1,ch=Math.ceil((ymax-oy)/g)+1,N=cw*ch;
+  if(N>1500000)continue;
+  const blk=new Uint8Array(N),hO=new Uint8Array(N),vO=new Uint8Array(N);
+  const cx=x=>Math.round((x-ox)/g),cy=y=>Math.round((y-oy)/g);
+  for(const o of obst){
+   if(o.r+4<ox||o.l-4>xmax||o.b+4<oy||o.t-4>ymax)continue;
+   const a=Math.max(0,cx(o.l-4)),b=Math.min(cw-1,cx(o.r+4)),c=Math.max(0,cy(o.t-4)),d=Math.min(ch-1,cy(o.b+4));
+   for(let y=c;y<=d;y++)for(let x=a;x<=b;x++)blk[y*cw+x]=1}
+  for(const[x1,y1,x2,y2]of segs){
+   /* 1 = a line is here, 2 = a line is right next to here (keep a clear gap) */
+   if(y1===y2){const a=Math.max(0,cx(Math.min(x1,x2))),b=Math.min(cw-1,cx(Math.max(x1,x2))),y=cy(y1);if(y<0||y>=ch)continue;
+    for(let x=a;x<=b;x++){hO[y*cw+x]=1;for(const dy of[-2,-1,1,2]){const yy=y+dy;if(yy>=0&&yy<ch&&!hO[yy*cw+x])hO[yy*cw+x]=2}}}
+   else{const a=Math.max(0,cy(Math.min(y1,y2))),b=Math.min(ch-1,cy(Math.max(y1,y2))),x=cx(x1);if(x<0||x>=cw)continue;
+    for(let y=a;y<=b;y++){vO[y*cw+x]=1;for(const dx of[-2,-1,1,2]){const xx=x+dx;if(xx>=0&&xx<cw&&!vO[y*cw+xx])vO[y*cw+xx]=2}}}}
+  const sx=cx(S[0]),sy=cy(S[1]),ex=cx(E[0]),ey=cy(E[1]);
+  if(sx<0||sy<0||sx>=cw||sy>=ch||ex<0||ey<0||ex>=cw||ey>=ch)continue;
+  for(const[px,py]of[[sx,sy],[ex,ey]])for(let y=py-1;y<=py+1;y++)for(let x=px-1;x<=px+1;x++)if(x>=0&&y>=0&&x<cw&&y<ch)blk[y*cw+x]=0;
+  const dist=new Float32Array(N*4).fill(1e9),prev=new Int32Array(N*4).fill(-1);
+  const hp=[],push=(f,s)=>{hp.push([f,s]);let i=hp.length-1;while(i>0){const p=(i-1)>>1;if(hp[p][0]<=hp[i][0])break;[hp[p],hp[i]]=[hp[i],hp[p]];i=p}};
+  const pop=()=>{const t=hp[0],l=hp.pop();if(hp.length){hp[0]=l;let i=0;for(;;){let a=2*i+1,b=a+1,m=i;if(a<hp.length&&hp[a][0]<hp[m][0])m=a;if(b<hp.length&&hp[b][0]<hp[m][0])m=b;if(m===i)break;[hp[m],hp[i]]=[hp[i],hp[m]];i=m}}return t};
+  const DX=[1,0,-1,0],DY=[0,1,0,-1];
+  const s0=(sy*cw+sx)*4;dist[s0]=0;push(Math.abs(ex-sx)+Math.abs(ey-sy),s0);
+  let goal=-1,steps=0;
+  while(hp.length&&steps++<900000){
+   const[,s]=pop(),d=s&3,c=s>>2,x=c%cw,y=(c-x)/cw,gd=dist[s];
+   if(x===ex&&y===ey){goal=s;break}
+   for(let nd=0;nd<4;nd++){
+    if(((nd+2)&3)===d)continue;
+    const nx=x+DX[nd],ny=y+DY[nd];if(nx<0||ny<0||nx>=cw||ny>=ch)continue;
+    const nc=ny*cw+nx;if(blk[nc])continue;
+    let cost=1+(nd!==d?5:0);
+    if(nd&1){if(vO[nc]===1)cost+=40;else if(vO[nc]===2)cost+=14;else if(hO[nc]===1)cost+=3}
+    else{if(hO[nc]===1)cost+=40;else if(hO[nc]===2)cost+=14;else if(vO[nc]===1)cost+=3}
+    const ns=nc*4+nd,nv=gd+cost;
+    if(nv<dist[ns]){dist[ns]=nv;prev[ns]=s;push(nv+Math.abs(ex-nx)+Math.abs(ey-ny),ns)}}}
+  if(goal<0)continue;
+  const pts=[];for(let s=goal;s>=0;s=prev[s]){const c=s>>2,x=c%cw;pts.push([ox+x*g,oy+((c-x)/cw)*g])}
+  pts.reverse();
+  const out=[pts[0]];
+  for(let i=1;i<pts.length-1;i++){const a=out[out.length-1],b=pts[i],c=pts[i+1];if((a[0]===b[0]&&b[0]===c[0])||(a[1]===b[1]&&b[1]===c[1]))continue;out.push(b)}
+  out.push(pts[pts.length-1]);
+  return out}
+ return null}
+
 function hLines(){
  const w=document.querySelector(".hwrap");if(!w)return;
+ let busy=0,sig="";
  const draw=()=>{
-  const old=w.querySelector("svg.hsv");if(old)old.remove();
-  const wr=w.getBoundingClientRect(),W=w.scrollWidth,H=w.scrollHeight;
+  busy=0;
+  const root=w.querySelector(":scope > .hroots");if(!root)return;
+  const nsig=root.offsetWidth+"x"+root.offsetHeight+"|"+w.clientWidth;
+  if(nsig===sig&&w.querySelector("svg.hsv"))return;
+  sig=nsig;
+  w.querySelectorAll("svg.hsv").forEach(e=>e.remove());
+  const wr=w.getBoundingClientRect(),W=Math.ceil(w.scrollWidth),H=Math.ceil(w.scrollHeight);
   const R=el=>{const r=el.getBoundingClientRect(),l=r.left-wr.left-w.clientLeft+w.scrollLeft,t=r.top-wr.top-w.clientTop+w.scrollTop;
    return{l,t,r:l+r.width,b:t+r.height,cx:l+r.width/2,cy:t+r.height/2}};
-  const card=id=>w.querySelector(`.hc[data-c="${id}"] .pc`);
+  const C=new Map(),obst=[];
+  w.querySelectorAll(".hc .pc").forEach(e=>{const r=R(e);C.set(e.parentElement.dataset.c,r);obst.push(r)});
+  w.querySelectorAll(".hmore,.hlab,.hdup").forEach(e=>obst.push(R(e)));
   const key=(a,b)=>(+a<+b)?a+"-"+b:b+"-"+a;
-  /* lane allocator: first lane whose already-used stretches do not touch [lo,hi] */
+  /* lane allocator for the children's vertical lines */
   const lanes={};
   const lane=(k,lo,hi)=>{const L=lanes[k]||(lanes[k]=[]);
    for(let i=0;i<L.length;i++)if(!L[i].some(([a,b])=>lo<b+7&&hi>a-7)){L[i].push([lo,hi]);return i}
    L.push([[lo,hi]]);return L.length-1};
-  const links={},out=[],outN={},inN={};let li=0;
-  /* A) dotted lines between spouses who are shown in different places */
+  const out=[],top=[],segs=[],links={},portN={};let li=0;
+  /* A) dotted couple lines: fix the two ports first (right edge of each box) */
   (w.dataset.pairs||"").split(",").filter(Boolean).forEach(k=>{
-   const [a,b]=k.split("-"),ca=card(a),cb=card(b);if(!ca||!cb)return;
-   if(ca.closest(".hcp")===cb.closest(".hcp"))return;
-   let A=R(ca),B=R(cb);
-   const bFirst=B.cy<A.cy-1||(Math.abs(B.cy-A.cy)<=1&&(ca.compareDocumentPosition(cb)&Node.DOCUMENT_POSITION_PRECEDING));
-   if(bFirst)[A,B]=[B,A];
-   const ka=Math.round(A.l)+"/"+Math.round(A.b),kb=Math.round(B.l)+"/"+Math.round(B.t);
-   const na=outN[ka]=(outN[ka]||0)+1,nb=inN[kb]=(inN[kb]||0)+1;
-   const gap=B.t-A.b,drop=gap>=64?30:Math.max(5,gap/2-4);
-   const y1=A.b+drop+4*(na-1),y2=B.t-drop-4*(nb-1);
-   const base=Math.min(A.r,B.r),i=lane("d"+Math.round(base),Math.min(y1,y2),Math.max(y1,y2)),lx=base+10+13*(i%5);
-   const col=LCOL[li++%LCOL.length];
-   const d=y2>y1?1:-1,cy=y1+d*Math.min(8,Math.abs(y2-y1)/2);
-   links[k]={lx,cy,col};
-   const st=`fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"`;
-   /* two dotted paths, each starting at its own box edge so a dot always touches the box */
-   out.push(`<path d="M${A.cx} ${A.b+1.75}V${y1}H${lx}V${cy}" ${st}/>`);
-   out.push(`<path d="M${B.cx} ${B.t-1.75}V${y2}H${lx}V${cy}" ${st}/>`);
-   out.push(`<circle cx="${lx}" cy="${cy}" r="4.5" fill="${col}"/>`);
-   /* a heart near each spouse marks this as the couple line */
-   if(drop>=14)[[A.cx,A.b+drop/2],[B.cx,B.t-drop/2]].forEach(([x,y])=>{
-    out.push(`<circle cx="${x}" cy="${y}" r="6" fill="#fff"/>`);
-    out.push(`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="12" fill="${col}">♥</text>`)})});
+   const [a,b]=k.split("-"),A=C.get(a),B=C.get(b),ca=w.querySelector(`.hc[data-c="${a}"] .pc`),cb=w.querySelector(`.hc[data-c="${b}"] .pc`);
+   if(!A||!B||ca.closest(".hcp")===cb.closest(".hcp"))return;
+   const port=(id,r)=>{const n=portN[id]=(portN[id]||0)+1,y=Math.max(r.t+8,r.t+(r.b-r.t)*.8-6*(n-1));return{x0:r.r,y,jx:r.r+9}};
+   links[k]={ends:{[a]:port(a,A),[b]:port(b,B)},a,b,col:LCOL[li++%LCOL.length],used:{}}});
   /* B) children lines */
   w.querySelectorAll(".hgrp").forEach(g=>{
-   const from=g.dataset.from,other=g.dataset.other,sc=card(from);if(!sc)return;
-   const ks=[...g.querySelectorAll(":scope > .hkid")].map(k=>k.querySelector(".hcp .pc")).filter(Boolean).map(R);
+   const from=g.dataset.from,other=g.dataset.other,sc=C.get(from);if(!sc)return;
+   const ks=[...g.querySelectorAll(":scope > .hkid")].map(k=>C.get(k.querySelector(".hc").dataset.c)).filter(Boolean);
    if(!ks.length)return;
    let sx,sy,col=g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc",sw=1.6;
    const lk=other?links[key(from,other)]:null;
    const ht=g.dataset.heart==="1"?w.querySelector(`.heart[data-h="${from}"]`):null;
-   if(lk){sx=lk.lx;sy=lk.cy;col=lk.col;sw=2.2}
+   if(lk){const e=lk.ends[from];sx=e.jx;sy=e.y;col=lk.col;sw=2.2;lk.used[from]=1}
    else if(ht){const h=R(ht);sx=h.cx+7;sy=h.cy}
-   else{const s=R(sc);sx=s.r;sy=s.cy}
+   else{sx=sc.r;sy=sc.cy}
    const kx=Math.min(...ks.map(r=>r.l)),ys=ks.map(r=>r.cy),lo=Math.min(sy,...ys),hi=Math.max(sy,...ys);
    const i=lane("b"+Math.round(kx),lo,hi),bus=kx-9-7*(i%5);
-   let p=`M${sx} ${sy}H${bus}`;
-   if(hi>lo)p+=`M${bus} ${lo}V${hi}`;
-   ks.forEach((r,j)=>{p+=`M${bus} ${ys[j]}H${r.l}`});
+   let p=`M${sx} ${sy}H${bus}`;segs.push([sx,sy,bus,sy]);
+   if(hi>lo){p+=`M${bus} ${lo}V${hi}`;segs.push([bus,lo,bus,hi])}
+   ks.forEach((r,j)=>{p+=`M${bus} ${ys[j]}H${r.l}`;segs.push([bus,ys[j],r.l,ys[j]])});
    out.push(`<path d="${p}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`)});
-  w.insertAdjacentHTML("afterbegin",`<svg class="hsv" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${out.join("")}</svg>`)};
+  /* C) route the dotted lines around the boxes */
+  Object.values(links).forEach(lk=>{
+   const ea=lk.ends[lk.a],eb=lk.ends[lk.b];
+   let mid=hRoute([ea.jx,ea.y],[eb.jx,eb.y],obst,segs,W,H),ok=!!mid;
+   if(!mid)mid=[[ea.jx,ea.y],[Math.max(ea.jx,eb.jx)+30,ea.y],[Math.max(ea.jx,eb.jx)+30,eb.y],[eb.jx,eb.y]];
+   const pts=[[ea.x0,ea.y],...mid,[eb.x0,eb.y]];
+   /* keep every joint square: snap the last point onto the end port */
+   const d="M"+pts.map(p=>p[0]+" "+p[1]).join("L");
+   for(let i=1;i<pts.length;i++){const[p,q]=[pts[i-1],pts[i]];segs.push([p[0],p[1],q[0],q[1]])}
+   const st=`fill="none" stroke="${lk.col}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"`;
+   (ok?out:top).push(`<path d="${d}" ${st}/>`);
+   /* little hearts: one on the line, one where each child line leaves it */
+   let tot=0;const L=[];for(let i=1;i<pts.length;i++){const l=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]);L.push(l);tot+=l}
+   const at=f=>{let acc=tot*f;for(let i=1;i<pts.length;i++){if(acc<=L[i-1]){const t=L[i-1]?acc/L[i-1]:0;return[pts[i-1][0]+(pts[i][0]-pts[i-1][0])*t,pts[i-1][1]+(pts[i][1]-pts[i-1][1])*t]}acc-=L[i-1]}return pts[0]};
+   /* put the little heart where it is farthest from every junction / box edge, so it never sits on top of another line's end */
+   const allEnds=Object.values(links).flatMap(l=>[l.ends[l.a],l.ends[l.b]]);
+   let mp=at(.5),best=-1;
+   [.5,.4,.6,.3,.7,.25,.75].forEach(f=>{const c=at(f),d=Math.min(...allEnds.map(e=>Math.hypot(e.jx-c[0],e.y-c[1])));if(d>best+4){best=d;mp=c}});
+   const tgt=ok?out:top;
+   tgt.push(`<circle cx="${mp[0]}" cy="${mp[1]}" r="7" fill="#fff"/><text x="${mp[0]}" y="${mp[1]}" text-anchor="middle" dominant-baseline="central" font-size="13" fill="${lk.col}">♥</text>`);
+   Object.keys(lk.used).forEach(id=>{const e=lk.ends[id];tgt.push(`<circle cx="${e.jx}" cy="${e.y}" r="4.5" fill="${lk.col}"/>`)})});
+  const svg=cl=>`<svg class="hsv ${cl}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  w.insertAdjacentHTML("afterbegin",svg("")+out.join("")+"</svg>");
+  if(top.length)w.insertAdjacentHTML("beforeend",svg("tp")+top.join("")+"</svg>")};
+ const sched=()=>{if(busy)return;busy=1;setTimeout(()=>requestAnimationFrame(draw),150)};
  requestAnimationFrame(draw);
  if(hRO)hRO.disconnect();
- const root=w.querySelector(":scope > .hn");
- if(root&&window.ResizeObserver){let t;hRO=new ResizeObserver(()=>{clearTimeout(t);t=setTimeout(draw,30)});hRO.observe(root)}
- w.addEventListener("load",()=>setTimeout(draw,0),true)}
+ const root=w.querySelector(":scope > .hroots");
+ if(root&&window.ResizeObserver){hRO=new ResizeObserver(sched);hRO.observe(root)}}
 
 /* ---- layout 3: horizontal descendants ---- */
 function horizHtml(T,pool){
@@ -382,23 +456,34 @@ function horizHtml(T,pool){
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
- let root=P(st[T])||roots[0]||pool[0];
- st[T]=root.id;
+ /* start: the whole tree (default) or one chosen person */
+ const sv=st[T],whole=sv===undefined||sv==="all"||!P(sv);
+ let starts=[];
+ if(whole){roots.forEach(r=>{if(!spouseIds(r.id).some(s=>starts.includes(s)))starts.push(r.id)});if(!starts.length)starts=[pool[0].id];st[T]="all"}
+ else starts=[sv];
  /* 1. who is in the chart (by generation); 'home' = the parent under whom each child is placed, so everyone appears once */
  const feeds=x=>[x,...spouseIds(x).filter(i=>P(i)&&!hasPar(P(i)))];
- const depth=new Map([[root.id,1]]),home=new Map(),q=[root.id];
+ const depth=new Map(),home=new Map(),q=[];
+ starts.forEach(id=>{depth.set(id,1);q.push(id)});
  while(q.length){const x=q.shift(),dx=depth.get(x);if(dx>=depthN)continue;
   feeds(x).forEach(i=>childrenOf(i).forEach(c=>{if(!depth.has(c.id)){depth.set(c.id,dx+1);home.set(c.id,x);q.push(c.id)}}))}
  /* 2. build the placement tree */
- let placed,pairs;
+ let placed,pairs,nodes;
  const pk=(a,b)=>a<b?a+"-"+b:b+"-"+a;
  const grpKey=(p,ids,c)=>{
   const pars=[c.father_id,c.mother_id].filter(Boolean);
-  const o=pars.includes(p.id)?pars.find(i=>i!==p.id):(pars.find(i=>ids.includes(i))||pars[0]);
-  if(o==null)return"s";
-  if(ids.includes(o))return"c"+o;
-  if(P(o)&&(depth.has(o)||placed.has(o)))return"l"+o;
-  return"s"};
+  const shown=i=>P(i)&&(depth.has(i)||placed.has(i));
+  if(pars.includes(p.id)){
+   const o=pars.find(i=>i!==p.id);
+   if(o==null)return"s";
+   if(ids.includes(o))return"c"+o;
+   return shown(o)?"l"+o:"s"}
+  /* child of a spouse who stands in this stack: the line belongs to THAT spouse and to the other parent (the right wife / husband) */
+  const sp=pars.find(i=>ids.includes(i)),o=pars.find(i=>i!==sp);
+  if(sp==null)return"s";
+  if(o==null)return"c"+sp;
+  if(ids.includes(o))return"c"+sp;
+  return shown(o)?"m"+sp+":"+o:"c"+sp};
  function build(p){
   placed.add(p.id);
   const sps=spouseIds(p.id).map(P).filter(s=>s&&!depth.has(s.id)&&!placed.has(s.id));
@@ -411,18 +496,20 @@ function horizHtml(T,pool){
   const ord=k=>k==="s"?0:k[0]==="c"?1+ids.indexOf(+k.slice(1)):100;
   const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>{
    if(k[0]==="l")pairs.add(pk(p.id,+k.slice(1)));
+   if(k[0]==="m"){const[a,b]=k.slice(1).split(":").map(Number);pairs.add(pk(a,b))}
    return{k,kids:g.sort(cmp).map(build)}});
-  const hidden=[...new Set(feeds(p.id).concat(sps.map(s=>s.id)).flatMap(i=>childrenOf(i).filter(c=>!depth.has(c.id)).map(c=>c.id)))].length;
-  return{p,sps,groups,hidden}}
- const make=()=>{placed=new Set();pairs=new Set();return build(root)};
+  const node={p,sps,groups};
+  nodes.set(p.id,node);sps.forEach(s=>nodes.set(s.id,node));
+  return node}
+ const make=()=>{placed=new Set();pairs=new Set();nodes=new Map();return starts.map(id=>build(P(id)))};
  /* 2b. kids of spouses who are shown in different places are placed beside the UPPER spouse,
     so the children's line stays short (repeat a couple of times until stable) */
- const rehome=t=>{
+ const rehome=ts=>{
   const ypos=new Map();let leaf=0;
   const walk=n=>{const ks=n.groups.flatMap(g=>g.kids);let y;
    if(!ks.length)y=leaf++;else{const ys=ks.map(walk);y=(ys[0]+ys[ys.length-1])/2}
    ypos.set(n.p.id,y);n.sps.forEach(s=>ypos.set(s.id,y));return y};
-  walk(t);
+  ts.forEach(walk);
   const owner=id=>depth.has(id)?id:spouseIds(id).find(s=>depth.has(s));
   let ch=false;
   home.forEach((h0,cid)=>{
@@ -433,26 +520,39 @@ function horizHtml(T,pool){
    const up=ypos.get(u)<ypos.get(v)?u:v,ow=owner(up);
    if(ow!=null&&ow!==h0&&ow!==cid&&ypos.has(ow)){home.set(cid,ow);ch=true}});
   return ch};
- let tree;
- for(let it=0;it<3;it++){tree=make();if(!rehome(tree))break}
- tree=make();
+ let trees;
+ for(let it=0;it<3;it++){trees=make();if(!rehome(trees))break}
+ trees=make();
+ /* 2c. safety net: anybody who is in the chart's family but did not get a place is attached under a parent */
+ for(let pass=0;pass<4;pass++){
+  const miss=[...depth.keys()].filter(id=>!placed.has(id)&&P(id));if(!miss.length)break;
+  miss.forEach(id=>{if(placed.has(id))return;
+   const c=P(id),par=[c.father_id,c.mother_id].map(i=>nodes.get(i)).find(Boolean),nd=build(c);
+   if(par){let g=par.groups.find(x=>x.k==="s");if(!g){g={k:"s",kids:[]};par.groups.unshift(g)}g.kids.push(nd)}else trees.push(nd)})}
  /* 3. draw */
+ const hiddenOf=n=>{if((depth.get(n.p.id)||0)<depthN)return 0;
+  return new Set(feeds(n.p.id).concat(n.sps.map(s=>s.id)).flatMap(i=>childrenOf(i).filter(c=>!placed.has(c.id)).map(c=>c.id))).size};
  const hc=(p,num)=>`<div class="hc" data-c="${p.id}">${card(p,num?undefined:{nn:1})}</div>`;
  function render(n,num){
-  const stack=`<div class="hcp">${hc(n.p,num)}${n.sps.map(s=>`<span class="heart" data-h="${s.id}">♥</span>${hc(s,false)}`).join("")}${n.hidden?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${n.hidden} ${n.hidden>1?"children":"child"} ▸</a>`:""}</div>`;
+  const hid=hiddenOf(n);
+  const stack=`<div class="hcp">${hc(n.p,num)}${n.sps.map(s=>`<span class="heart" data-h="${s.id}">♥</span>${hc(s,false)}`).join("")}${hid?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${hid} ${hid>1?"children":"child"} ▸</a>`:""}</div>`;
   if(!n.groups.length)return`<div class="hn">${stack}</div>`;
   const multi=n.groups.length>1;
   return`<div class="hn">${stack}<div class="hk">${n.groups.map((g,gi)=>{
-   const t=g.k[0],id=+g.k.slice(1),o=P(id);
-   const from=t==="c"?id:n.p.id,other=t==="l"?id:"";
+   const t=g.k[0];let id=+g.k.slice(1),from,other="";
+   if(t==="m"){const[a,b]=g.k.slice(1).split(":").map(Number);from=a;other=b;id=b}
+   else{from=t==="c"?id:n.p.id;other=t==="l"?id:""}
+   const o=P(id);
    const lab=t==="s"?"other / unlisted":"with "+esc(dispName(o));
    return`<div class="hgrp" data-from="${from}" data-other="${other}" data-gi="${gi}" data-multi="${multi?1:0}" data-heart="${t==="c"?1:0}">${multi?`<div class="hlab">${lab}</div>`:""}${g.kids.map(k=>`<div class="hkid">${render(k,true)}</div>`).join("")}</div>`}).join("")}</div></div>`}
  const cand=people.filter(hasKids).sort(byName);
- if(!cand.includes(root))cand.unshift(root);
- return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(+this.value)">${cand.map(p=>`<option value="${p.id}" ${p.id===root.id?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select>
+ if(!whole&&!cand.includes(P(starts[0])))cand.unshift(P(starts[0]));
+ const unlinked=whole?pool.filter(p=>!placed.has(p.id)):[];
+ return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(this.value==='all'?'all':+this.value)"><option value="all" ${whole?"selected":""}>Whole tree (everyone)</option>${cand.map(p=>`<option value="${p.id}" ${!whole&&p.id===starts[0]?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select>
  <select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
- <div class="mut">Scroll sideways · tap a name for the full record · tap "children ▸" to start from there</div>
- <div class="hwrap" data-pairs="${[...pairs].join(",")}">${render(tree,false)}</div>`}
+ <div class="mut">Scroll sideways · tap a name for the full record${whole?"":" · tap \"children ▸\" to start from there"}</div>
+ <div class="hwrap" data-pairs="${[...pairs].join(",")}"><div class="hroots">${trees.map(t=>`<div class="hroot">${render(t,false)}</div>`).join("")}</div></div>
+ ${unlinked.length?`<details class="sec"><summary><b>Not yet linked (${unlinked.length})</b></summary><div class="grid" style="margin-top:8px">${unlinked.map(cardNN).join("")}</div></details>`:""}`}
 
 /* ---------- Members + record ---------- */
 let q="",mf="all";
@@ -539,7 +639,7 @@ function openBulk(){
  const d=$("#dlg");
  d.innerHTML=`<h2>Update ${sel.size} people</h2><div id="msg" class="mut" style="color:var(--red)"></div>
  <label>Status</label><select id="bs"><option value="deceased">Deceased</option><option value="alive">Alive</option><option value="unknown">Unknown</option></select>
- <label>Date of death (optional, Deceased only)</label><input id="bd" placeholder="YYYY-MM-DD or YYYY-MM or YYYY">
+ <label>Date of death (optional, Deceased only)</label><input id="bd" placeholder="YYYY-MM-DD, YYYY-MM, YYYY or --MM-DD (no year)">
  <p class="mut">Leave the date empty if it is not known. Alive / Unknown also clears any date of death.</p>
  <div class="row" style="justify-content:flex-end"><button class="alt" id="cx">Cancel</button><button id="sv">Apply</button></div>`;
  $("#cx").onclick=()=>d.close();
@@ -568,7 +668,7 @@ function fieldHtml([k,l,t,x],v){
  if(t==="text")inp=`<input id="${id}" value="${esc(v)}">`;
  else if(t==="num")inp=`<input id="${id}" type="number" step="0.5" value="${esc(v)}">`;
  else if(t==="time")inp=`<input id="${id}" type="time" value="${esc(normTime(v))}">`;
- else if(t==="date")inp=`<input id="${id}" value="${esc(v)}" placeholder="YYYY-MM-DD or YYYY-MM or YYYY">`;
+ else if(t==="date")inp=`<input id="${id}" value="${esc(v)}" placeholder="YYYY-MM-DD, YYYY-MM, YYYY or --MM-DD (no year)">`;
  else if(t==="area")inp=`<textarea id="${id}" rows="3">${esc(v)}</textarea>`;
  else if(t==="chk")return`<label class="ck"><input id="${id}" type="checkbox" ${v?"checked":""}> ${l}</label>`;
  else if(t==="sel")inp=`<select id="${id}"><option value=""></option>${x.map(o=>`<option ${o===v?"selected":""} value="${o}">${o==="rajmohan"?"Raj":o[0].toUpperCase()+o.slice(1)}</option>`).join("")}</select>`;
@@ -579,7 +679,7 @@ function collect(F,errs){const o={};
  F.forEach(([k,l,t])=>{const e=document.getElementById("f_"+k);let v;
   if(t==="chk")v=e.checked;else{v=e.value.trim();if(v==="")v=null;
    else if(t==="person"||t==="num")v=Number(v);
-   else if(t==="date"&&!/^\d{4}(-\d{2}(-\d{2})?)?$/.test(v))errs.push(l+": use YYYY-MM-DD, YYYY-MM or YYYY")}
+   else if(t==="date"&&!/^(\d{4}(-\d{2}(-\d{2})?)?|--\d{2}-\d{2})$/.test(v))errs.push(l+": use YYYY-MM-DD, YYYY-MM, YYYY or --MM-DD")}
   o[k]=v});return o}
 function openForm(title,F,rec,onSave){
  const d=$("#dlg");
