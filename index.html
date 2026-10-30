@@ -59,6 +59,19 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 @media(max-width:480px){.two{grid-template-columns:1fr}.kv{grid-template-columns:105px 1fr}}
 .ck{display:flex;gap:8px;align-items:center}.ck input{width:auto}
 .pv{width:80px;height:80px;border-radius:12px;object-fit:cover;margin-top:6px}
+.mc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:6px 0;font-size:.88rem;line-height:1.35}
+.mh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.mh .nm{font-weight:700;font-size:1rem;overflow-wrap:anywhere}
+.ph{width:42px;height:42px;border-radius:50%;object-fit:cover;flex:none;background:#e3e9f3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#8a97ab}
+.mc.full .ph{width:84px;height:84px;border-radius:14px;font-size:2.4rem}
+.ml{margin-top:2px}.ml b{color:var(--mut);font-weight:600;font-size:.8rem}
+.lk{color:var(--pri);font-weight:600}
+.chips{display:flex;gap:6px;margin:8px 0}
+.chip{padding:5px 14px;border-radius:99px;background:#e7eef8;color:var(--pri);border:1px solid #b8c8e2;cursor:pointer;font-size:.9rem}
+.chip.on{background:var(--pri);color:#fff}
+.mc details>summary{display:inline-block;color:var(--pri);font-weight:700;font-size:1.1rem;line-height:1;cursor:pointer;padding:2px 8px;background:#e7eef8;border-radius:6px;margin-top:4px}
+.mc .kv{margin-top:6px;font-size:.85rem}
+#top{position:fixed;right:14px;bottom:18px;width:44px;height:44px;border-radius:50%;padding:0;font-size:1.3rem;box-shadow:0 2px 8px #0004;z-index:20;display:none}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳 Family Tree</a>
@@ -67,6 +80,7 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 </div></header>
 <main id="app"><div class="status">Loading…</div></main>
 <dialog id="dlg"></dialog>
+<button id="top" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
@@ -82,7 +96,7 @@ const P=id=>people.find(p=>p.id===id);
 
 /* ---------- field definitions: [key,label,type,extra] ---------- */
 const PF=[
-["name","Name (English)","text"],["tree","Family tree","sel",["vetri","rajmohan"]],["name_ta","Name (தமிழ்)","text"],["nickname","Nickname","text"],
+["name","Name (Tamil or English)","text"],["tree","Family tree","sel",["vetri","rajmohan"]],["nickname","Nickname","text"],
 ["gender","Gender","sel",["male","female","other"]],
 ["father_id","Father","person"],["mother_id","Mother","person"],["birth_order","Birth order among siblings","num"],
 ["dob","Date of birth","date"],["birth_time","Time of birth","time"],["birth_place","Place of birth","text"],
@@ -121,7 +135,7 @@ function card(p){
  return`<a class="pc ${p.is_placeholder?"ph":""}" href="#/person/${p.id}">`+
  (p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
  `<div><div class="n">${esc(dispName(p))}</div>`+
- (p.name_ta?`<div class="t">${esc(p.name_ta)}</div>`:"")+
+ 
  (per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
 const bo=p=>{const n=Number(p.birth_order);return p.birth_order==null||!isFinite(n)?null:n};
 function cmp(a,b){const x=bo(a),y=bo(b);if(x===null&&y===null)return a.id-b.id;if(x===null)return 1;if(y===null)return-1;return x-y||a.id-b.id}
@@ -147,11 +161,12 @@ sb.auth.onAuthStateChange(()=>setTimeout(load,0));
 /* ---------- nav / routing ---------- */
 function renderNav(){
  const h=location.hash.slice(1)||"/";
- const items=[["/vetri","Vetri"],["/rajmohan","Rajmohan"],["/members","Members"]];
- if(canEdit())items.push(["/add","+ Add Member"]);
+ const items=[["/vetri","Vetri"],["/raj","Raj"],["/members","Members"]];
+ if(canEdit())items.push(["/add","+ Add"]);
  $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/vetri"&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
+window.addEventListener("scroll",()=>{$("#top").style.display=scrollY>300?"block":"none"});
 window.addEventListener("hashchange",()=>{renderNav();route();window.scrollTo(0,0)});
 $("#who").onclick=()=>{location.hash="#/login"};
 
@@ -163,7 +178,7 @@ function route(){
  if(a==="members")return viewMembers(app);
  if(a==="person")return viewPerson(app,+b);
  if(a==="add"){if(canEdit()){app.innerHTML="";openPerson()}else location.hash="#/login";return}
- if(a==="rajmohan")return viewTree(app,"rajmohan");
+ if(a==="raj")return viewTree(app,"rajmohan");
  viewTree(app,"vetri")}
 
 /* ---------- Tree (home) ---------- */
@@ -189,52 +204,68 @@ function viewTree(app,T){
  let html="";
  roots.forEach(r=>{if(!shown.has(r.id))html+=`<div class="sec">${unit(r,0)}</div>`});
  const others=pool.filter(isolated);
- app.innerHTML=`<h2>${T==="rajmohan"?"Rajmohan":"Vetri"} family</h2><div class="mut">${pool.length} people · tap a name for full record · tap ▸ to expand</div>
+ app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family</h2><div class="mut">${pool.length} people · tap a name for full record · tap ▸ to expand</div>
  <div class="tools"><button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=true)">Expand all</button>
  <button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=false)">Collapse all</button></div>
  ${html||'<div class="status">No people yet.</div>'}
  ${others.length?`<details class="sec"><summary><b>Not yet linked (${others.length})</b></summary><div class="grid" style="margin-top:8px">${others.map(card).join("")}</div></details>`:""}`}
 
-/* ---------- Members ---------- */
-let q="";
-function viewMembers(app){
- app.innerHTML=`<h2>Members</h2><input id="q" placeholder="Search name (English / தமிழ்), ID…" value="${esc(q)}"><div id="cnt" class="mut" style="margin:8px 0"></div><div id="list" class="grid"></div>`;
- const draw=()=>{const t=q.trim().toLowerCase();
-  const r=people.filter(p=>!t||[p.name,p.name_ta,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t)))
-   .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-  $("#cnt").textContent=`${r.length} of ${people.length}`;$("#list").innerHTML=r.map(card).join("")};
- $("#q").oninput=e=>{q=e.target.value;draw()};draw()}
+/* ---------- Members + record ---------- */
+let q="",mf="all";
+const lk=p=>`<a class="lk" href="#/person/${p.id}">${esc(dispName(p))}</a>`;
+const lks=ps=>ps.map(lk).join(", ");
+const TL={vetri:"Vetri",rajmohan:"Raj"};
+function moreRows(p){
+ const rows=PF.filter(([k])=>k!=="photo_url"&&p[k]!=null&&p[k]!==""&&!(k==="is_placeholder"&&!p[k])).map(([k,l,t])=>{
+  let v=p[k];
+  if(t==="person")v=P(v)?lk(P(v)):esc(v);
+  else if(t==="date")v=esc(fmtDate(v));
+  else if(t==="chk")v="Yes";
+  else if(k==="tree")v=TL[v]||esc(v);
+  else v=esc(v);
+  return`<b>${l}</b><span>${v}</span>`}).join("");
+ return`<div class="kv"><b>ID</b><span>${p.id}</span>${rows}</div>`+(role?"":`<p class="mut">Sign in to see private details.</p>`)}
+function rec(p,full){
+ const per=period(p),id=p.id;
+ const ln=(l,h)=>h?`<div class="ml"><b>${l}:</b> ${h}</div>`:"";
+ const sps=marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>({m,o:P(m.person1_id===id?m.person2_id:m.person1_id)})).filter(x=>x.o);
+ const spH=sps.map(({m,o})=>{
+  let extra="";
+  if(full){const bits=[m.status&&m.status!=="married"?m.status:"",m.engagement_date?"engaged "+fmtDate(m.engagement_date)+(m.engagement_place?" at "+esc(m.engagement_place):""):"",m.marriage_date?"wedding "+fmtDate(m.marriage_date)+(m.wedding_place?" at "+esc(m.wedding_place):""):"",m.end_date?"ended "+fmtDate(m.end_date):""].filter(Boolean).join(", ");
+   if(bits)extra=` <span class="mut">(${bits})</span>`;
+   if(canEdit())extra+=` <a class="lk" href="javascript:openMarriage(${m.id})">✎</a> <a class="lk" style="color:var(--red)" href="javascript:delMarriage(${m.id})">🗑</a>`}
+  return lk(o)+extra}).join(", ");
+ const kids=childrenOf(id),sibs=siblingsOf(p);
+ const gk=full?kids.flatMap(c=>childrenOf(c.id)):[];
+ const sub=[p.profession,p.current_location].filter(Boolean).join(" · ");
+ return`<div class="mc ${full?"full":""}"><div class="mh"><div>
+  ${full?`<div class="nm" style="font-size:1.25rem">${esc(dispName(p))}</div>`:`<a class="nm" href="#/person/${id}">${esc(dispName(p))}</a>`}
+  <span class="sub">#${id} · ${TL[p.tree]||""}</span>
+  ${per?`<div class="mut">${esc(per)}</div>`:""}${sub?`<div class="mut">${esc(sub)}</div>`:""}</div>
+  ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
+  ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
+  ${ln("Spouse",spH)}${ln("Children",lks(kids))}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lks(gk))}
+  <details><summary title="More details">⋯</summary>${moreRows(p)}</details></div>`}
 
-/* ---------- Person page ---------- */
+function viewMembers(app){
+ const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
+ app.innerHTML=`<input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}">
+ <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div><div id="list"></div>`;
+ const draw=()=>{const t=q.trim().toLowerCase();
+  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(!t||[p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
+   .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  $("#cnt").textContent=`${r.length} of ${people.length}`;$("#list").innerHTML=r.map(p=>rec(p,false)).join("")};
+ $("#q").oninput=e=>{q=e.target.value;draw()};
+ document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));draw()});
+ draw()}
+
 function viewPerson(app,id){
  const p=P(id);
  if(!p){app.innerHTML=`<div class="status warn">Person not found. <a href="#/members" style="text-decoration:underline">Back to members</a></div>`;return}
- const per=period(p);
- const ms=marriages.filter(m=>m.person1_id===id||m.person2_id===id);
- const spHtml=ms.length?ms.map(m=>{const o=P(m.person1_id===id?m.person2_id:m.person1_id);if(!o)return"";
-  const bits=[m.status&&m.status!=="married"?m.status:"",m.engagement_date?"Engaged "+fmtDate(m.engagement_date)+(m.engagement_place?" at "+m.engagement_place:""):"",m.marriage_date?"Wedding "+fmtDate(m.marriage_date)+(m.wedding_place?" at "+m.wedding_place:""):"",m.end_date?"Ended "+fmtDate(m.end_date):""].filter(Boolean).join(" · ");
-  return`${card(o)}${bits?`<div class="mut" style="margin:2px 0 6px 6px">${esc(bits)}</div>`:""}${canEdit()?`<div class="row" style="margin:4px 0 8px"><button class="alt" onclick="openMarriage(${m.id})">Edit marriage</button><button class="red" onclick="delMarriage(${m.id})">Delete marriage</button></div>`:""}`}).join(""):`<span class="mut">Not recorded</span>`;
- const par=[p.father_id,p.mother_id].map(P).filter(Boolean);
- const rows=PF.filter(([k])=>!["photo_url"].includes(k)&&p[k]!=null&&p[k]!==""&&!(k==="is_placeholder"&&!p[k])).map(([k,l,t])=>{
-  let v=p[k];
-  if(t==="person")v=`<a href="#/person/${v}" style="text-decoration:underline">${esc(nm(v))}</a>`;
-  else if(t==="date")v=esc(fmtDate(v));
-  else if(t==="chk")v="Yes";else v=esc(v);
-  return`<b>${l}</b><span>${v}</span>`}).join("");
- app.innerHTML=`<div class="hero">${p.photo_url?`<img src="${esc(p.photo_url)}" alt="">`:""}<div>
-  <h1>${esc(dispName(p))}</h1>${p.name_ta?`<div>${esc(p.name_ta)}</div>`:""}${per?`<div class="mut">${esc(per)}</div>`:""}
-  ${p.profession||p.current_location?`<div class="mut">${esc([p.profession,p.current_location].filter(Boolean).join(" · "))}</div>`:""}</div></div>
- <div class="sec"><h3>Parents</h3>${links(par)}</div>
- <div class="sec"><h3>Spouse</h3>${spHtml}</div>
- <div class="sec"><h3>Children</h3>${links(childrenOf(id))}</div>
- <div class="sec"><h3>Siblings</h3>${links(siblingsOf(p))}</div>
- <div class="sec"><details class="more"><summary>⋯ More details</summary><div class="kv"><b>ID</b><span>${p.id}</span>${rows}
-  ${p.created_at?`<b>Last updated</b><span>${esc(String(p.updated_at).slice(0,10))}</span>`:""}</div>
-  ${role?"":`<p class="mut">Sign in to see private details (birth time, contact, location, kothram…).</p>`}</details></div>
- ${canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
+ app.innerHTML=rec(p,true)+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
   <button class="alt" onclick="addChild(${id})">+ Child</button>
   <button class="alt" onclick="openMarriage(null,${id})">+ Spouse</button>
-  <button class="red" onclick="delPerson(${id})">Delete</button></div>`:""}`}
+  <button class="red" onclick="delPerson(${id})">Delete</button></div>`:"")}
 
 /* ---------- forms ---------- */
 function fieldHtml([k,l,t,x],v){
@@ -245,7 +276,7 @@ function fieldHtml([k,l,t,x],v){
  else if(t==="date")inp=`<input id="${id}" value="${esc(v)}" placeholder="YYYY-MM-DD or YYYY-MM or YYYY">`;
  else if(t==="area")inp=`<textarea id="${id}" rows="3">${esc(v)}</textarea>`;
  else if(t==="chk")return`<label class="ck"><input id="${id}" type="checkbox" ${v?"checked":""}> ${l}</label>`;
- else if(t==="sel")inp=`<select id="${id}"><option value=""></option>${x.map(o=>`<option ${o===v?"selected":""} value="${o}">${o[0].toUpperCase()+o.slice(1)}</option>`).join("")}</select>`;
+ else if(t==="sel")inp=`<select id="${id}"><option value=""></option>${x.map(o=>`<option ${o===v?"selected":""} value="${o}">${o==="rajmohan"?"Raj":o[0].toUpperCase()+o.slice(1)}</option>`).join("")}</select>`;
  else if(t==="person")inp=`<select id="${id}"><option value=""></option>${[...people].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>`<option value="${p.id}" ${p.id===v?"selected":""}>${esc(p.name)} (#${p.id})</option>`).join("")}</select>`;
  else if(t==="photo")inp=`<input id="${id}" type="hidden" value="${esc(v)}"><input type="file" accept="image/*" onchange="upPhoto(this,'${id}')"><img id="${id}_pv" class="pv" src="${esc(v)}" ${v?"":"hidden"} alt="">`;
  return`<label for="${id}">${l}</label>${inp}`}
