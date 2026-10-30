@@ -48,6 +48,7 @@ details>summary::-webkit-details-marker{display:none}
 .hero h1{margin:0;font-size:1.4rem}
 .sec{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:12px}
 .sec h3{margin:0 0 8px;font-size:1rem;color:var(--mut)}
+.bl{opacity:.55;font-weight:400}
 .more>summary{padding:8px 0;color:var(--pri);font-weight:600}
 .kv{display:grid;grid-template-columns:130px 1fr;gap:4px 10px}
 .kv b{color:var(--mut);font-weight:500}
@@ -95,7 +96,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let people=[],marriages=[],session=null,role=null,loadErr="";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const canEdit=()=>role==="editor"||role==="admin";
+const canEdit=()=>role==="admin";
 const P=id=>people.find(p=>p.id===id);
 
 /* ---------- field definitions: [key,label,type,extra] ---------- */
@@ -110,6 +111,8 @@ const PF=[
 ["current_location","Currently lives in","text"],["native_place","Native place","text"],
 ["kothram","Kothram","text"],["rasi","Rasi","text"],["natchathiram","Natchathiram","text"],
 ["phone","Phone","text"],["email","Email","text"],
+["facebook","Facebook","text"],["instagram","Instagram","text"],["youtube","YouTube","text"],["twitter","Twitter / X","text"],["linkedin","LinkedIn","text"],["github","GitHub","text"],
+["whatsapp","WhatsApp number","text"],["telegram","Telegram","text"],["snapchat","Snapchat","text"],["threads","Threads","text"],["pinterest","Pinterest","text"],["website","Website / blog","text"],["maps_link","Google Maps location link","text"],["alt_phone","Alternate phone","text"],["home_address","Home address","area"],
 ["blood_group","Blood group","sel",["A+","A-","B+","B-","AB+","AB-","O+","O-"]],
 ["branch","Family line / branch","text"],
 ["is_placeholder","Placeholder name (e.g. \"Ravi's son\")","chk"],
@@ -153,10 +156,7 @@ async function load(){
  loadErr="";
  const {data:{session:s}}=await sb.auth.getSession();session=s;role=null;
  if(s){const r=await sb.from("ft_app_users").select("role").eq("user_id",s.user.id).maybeSingle();role=r.data?.role||null}
- const full=!!role;
- const [a,b]=await Promise.all(full?[
-  sb.from("ft_people").select("*").order("id"),sb.from("ft_marriages").select("*").order("id")]:[
-  sb.rpc("ft_public",{tbl:"ft_people"}),sb.rpc("ft_public",{tbl:"ft_marriages"})]);
+ const [a,b]=await Promise.all([sb.rpc("ft_data",{tbl:"ft_people"}),sb.rpc("ft_data",{tbl:"ft_marriages"})]);
  if(a.error||b.error){loadErr=(a.error||b.error).message;people=[];marriages=[]}
  else{people=a.data;marriages=b.data}
  renderNav();route()}
@@ -222,11 +222,24 @@ const lk0=ps=>ps.map(lk).join(", ");
 const lks=ps=>ps.map(p=>lk(p)+(bo(p)!==null?`<span class="mut"> · ${esc(p.birth_order)}</span>`:"")).join(", ");
 const TL={vetri:"Vetri",rajmohan:"Raj"};
 const SHOWN=new Set(["is_placeholder","name","father_id","mother_id","photo_url","dob","dod","profession","current_location","tree","life_status","is_late"]);
+const SOC=["facebook","instagram","youtube","twitter","linkedin","github","telegram","snapchat","threads","pinterest","website","maps_link"];
+const HB={telegram:"https://t.me/",snapchat:"https://www.snapchat.com/add/",instagram:"https://instagram.com/",twitter:"https://x.com/",threads:"https://www.threads.net/@"};
+function fv(k,t,v){
+ if(t==="date")return esc(fmtDate(v));if(t==="chk")return"Yes";
+ if(k==="life_status")return esc(v[0].toUpperCase()+v.slice(1));
+ if(k==="email")return`<a class="lk" href="mailto:${esc(v)}">${esc(v)}</a>`;
+ if(k==="whatsapp")return`<a class="lk" target="_blank" rel="noopener" href="https://wa.me/${esc(v.replace(/\D/g,""))}">${esc(v)}</a>`;
+ if(k==="phone"||k==="alt_phone")return`<a class="lk" href="tel:${esc(v)}">${esc(v)}</a>`;
+ if(SOC.includes(k)){const u=/^https?:/i.test(v)?v:(v[0]==="@"&&HB[k]?HB[k]+v.slice(1):"https://"+v);return`<a class="lk" target="_blank" rel="noopener" href="${esc(u)}">${esc(v)}</a>`}
+ if(k==="home_address")return esc(v).replace(/\n/g,"<br>");
+ return esc(v)}
 function moreRows(p){
- return PF.filter(([k])=>!SHOWN.has(k)&&p[k]!=null&&p[k]!==""&&!(k==="is_placeholder"&&!p[k])).map(([k,l,t])=>{
-  let v=p[k];
-  if(t==="date")v=esc(fmtDate(v));else if(t==="chk")v="Yes";else v=esc(v);
-  return`<b>${l}</b><span>${v}</span>`}).join("")}
+ const SK=new Set(["name","photo_url","father_id","mother_id","tree","is_placeholder"]);
+ const has=(k,v)=>v!=null&&v!==""&&!(k==="life_status"&&v==="unknown");
+ const fl=PF.filter(([k])=>k in p&&!SK.has(k));
+ const filled=fl.filter(([k])=>has(k,p[k])).map(([k,l,t])=>`<b>${l}</b><span>${fv(k,t,p[k])}</span>`);
+ const blank=fl.filter(([k])=>!has(k,p[k])).map(([k,l])=>`<b class="bl">${l}</b><span class="bl">—</span>`);
+ return filled.join("")+(blank.length?`<b style="grid-column:1/-1;margin-top:10px">Not filled yet</b>`+blank.join(""):"")}
 function rec(p,full){
  const per=period(p),id=p.id;
  const ln=(l,h)=>h?`<div class="ml"><b>${l}:</b> ${h}</div>`:"";
@@ -247,7 +260,7 @@ function rec(p,full){
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
   ${ln("Spouse",spH)}${ln("Children",lks(kids))}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
-  ${(()=>{const r=moreRows(p);if(!r)return full&&!role?`<p class="mut">Sign in to see private details.</p>`:"";return full?`<div class="kv" style="margin-top:8px">${r}</div>`:""})()}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a>`}</div>`}
+  ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a>`}</div>`}
 
 function viewMembers(app){
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
@@ -333,24 +346,24 @@ function openMarriage(id,pid){
 async function delMarriage(id){if(!confirm("Delete this marriage record?"))return;
  const {error}=await sb.from("ft_marriages").delete().eq("id",id);if(error)return alert(error.message);await load()}
 
-/* ---------- login: email + 6-digit code only ---------- */
+/* ---------- login: user ID + password ---------- */
+const LABEL={admin:"Admin",member_advanced:"Member (advanced)",member_basic:"Member (basic)"};
+const uid2mail=u=>u.trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")+"@family-tree.app";
 function viewLogin(app){
- if(session){app.innerHTML=`<h2>Account</h2><div class="sec">Signed in as <b>${esc(session.user.email||session.user.phone)}</b><br>Access: <b>${role||"pending – ask the admin to approve you"}</b>
+ if(session){const u=(session.user.email||"").split("@")[0];
+  app.innerHTML=`<h2>Account</h2><div class="sec">Signed in as <b>${esc(u)}</b><br>Access: <b>${esc(LABEL[role]||"no access assigned - ask the admin")}</b>
   <div class="row"><button id="lo">Sign out</button></div></div>`;
   $("#lo").onclick=async()=>{await sb.auth.signOut();location.hash="#/"};return}
- app.innerHTML=`<h2>Sign in</h2><div class="sec"><div id="lm" class="mut"></div>
-  <div id="s1"><label>Email</label><input id="em" type="email" autocomplete="email"><div class="row"><button id="go">Send code</button></div></div>
-  <div id="s2" hidden><label>6-digit code from your email</label><input id="cd" inputmode="numeric" autocomplete="one-time-code"><div class="row"><button id="vf">Verify</button></div></div></div>`;
- $("#go").onclick=async()=>{const email=$("#em").value.trim();if(!email)return;
+ app.innerHTML=`<h2>Sign in</h2><div class="sec"><div id="lm" class="mut" style="color:var(--red)"></div>
+  <label>User ID</label><input id="ui" autocomplete="username" autocapitalize="none" spellcheck="false">
+  <label>Password</label><input id="pw" type="password" autocomplete="current-password">
+  <div class="row"><button id="go">Sign in</button></div>
+  <p class="mut">Without signing in you can see names, relationships and life periods only.</p></div>`;
+ const go=async()=>{const u=$("#ui").value,p=$("#pw").value;if(!u||!p)return;
   $("#go").disabled=true;
-  const {error}=await sb.auth.signInWithOtp({email});
+  const {error}=await sb.auth.signInWithPassword({email:uid2mail(u),password:p});
   $("#go").disabled=false;
-  if(error)return $("#lm").textContent=error.message;
-  $("#s1").hidden=true;$("#s2").hidden=false;$("#lm").textContent="Code sent to "+email};
- $("#vf").onclick=async()=>{
-  const em=$("#em").value.trim(),tk=$("#cd").value.trim();
-  let {error}=await sb.auth.verifyOtp({email:em,token:tk,type:"email"});
-  if(error)({error}=await sb.auth.verifyOtp({email:em,token:tk,type:"signup"}));
-  if(error)return $("#lm").textContent=error.message;location.hash="#/"};
-}
+  if(error)return $("#lm").textContent="Wrong user ID or password";
+  location.hash="#/"};
+ $("#go").onclick=go;$("#pw").onkeydown=e=>{if(e.key==="Enter")go()}}
 </script></body></html>
