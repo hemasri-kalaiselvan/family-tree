@@ -27,6 +27,9 @@ label{display:block;margin:10px 0 2px;font-size:.85rem;color:var(--mut)}
 /* person card */
 .pc{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:120px;max-width:100%;flex:0 1 auto}
 .pc:hover{border-color:var(--pri)}
+.pc{position:relative}
+.pc.hb{padding-left:15px}
+.bn{position:absolute;left:-9px;top:-9px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--pri);color:#fff;font-size:.66rem;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px #fff;z-index:2;pointer-events:none}
 .pc img{width:46px;height:46px;border-radius:50%;object-fit:cover;flex:none}
 .pc .n{font-weight:600;font-size:.92rem;overflow-wrap:break-word}
 .pc .t{font-size:.9rem;color:var(--ink)}
@@ -97,18 +100,19 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hl{font-size:.72rem;color:var(--mut);text-align:center;width:100%;display:block}
 .hv{height:16px;width:0;border-left:1px solid #b9c6dc;margin:0 auto}
 .hgk{margin-top:12px}.hgk>summary{color:var(--pri);font-weight:600;text-align:center}
-.hwrap{overflow-x:auto;overflow-y:visible;padding:8px 6px 14px;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.hwrap{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;padding:10px 8px 16px;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px}
 .hn{display:flex;align-items:center;width:max-content}
 .hcp{display:flex;flex-direction:column;gap:1px;width:128px;flex:none}
 .hcp .pc{min-width:0;width:100%}
-.hcp .heart{text-align:center;line-height:.9;font-size:.8rem}
+.hcp .heart{text-align:center;line-height:.9;font-size:.8rem;position:relative;z-index:1}
 .hmore{font-size:.72rem;color:var(--pri);text-align:center;padding:2px 0;font-weight:600}
 .hwrap{position:relative}
-.hk{display:flex;flex-direction:column;gap:14px;margin-left:56px}
+.hk{display:flex;flex-direction:column;gap:26px;margin-left:72px}
 .hc{position:relative;z-index:1}
-.hgrp{display:flex;flex-direction:column;gap:8px}
+.hgrp{display:flex;flex-direction:column;gap:20px}
 .hlab{font-size:.7rem;font-weight:600;color:var(--mut)}
-.hsv{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
+.hsv{position:absolute;left:0;top:0;pointer-events:none;overflow:hidden;z-index:0}
+.hwrap>.hn{padding-right:48px}
 .hdup{font-size:.7rem;color:var(--mut);text-align:center;margin-top:2px}
 </style></head><body>
 <header><div class="top">
@@ -170,12 +174,14 @@ function period(p){const b=fmtDate(p.dob),d=fmtDate(p.dod);
  if(b&&d)return`${b} – ${d}`;
  if(b)return isLate(p)?`${b} – ?`:b;
  if(d)return`d. ${d}`;return""}
+const sortKey=p=>dispName(p).replace(/^\s*late\s+/i,"").toLowerCase();
+const byName=(a,b)=>sortKey(a).localeCompare(sortKey(b),undefined,{sensitivity:"base"})||a.id-b.id;
 const dispName=p=>(isLate(p)?"Late ":"")+(p.name||"Unnamed");
 const nm=id=>{const p=P(id);return p?dispName(p):""};
 function card(p){
  const per=period(p);
- return`<a class="pc" href="#/person/${p.id}">`+
- (p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
+ return`<a class="pc${bo(p)!==null?" hb":""}" href="#/person/${p.id}">`+
+ (bo(p)!==null?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:"")+(p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
  `<div><div class="n">${esc(dispName(p))}</div>`+
  
  (per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
@@ -227,8 +233,8 @@ let curTree="vetri",lay="hour",depthN=3,depthV="3";
 const fo={},st={};
 function fcard(p,cur){
  const per=period(p);
- return`<a class="pc ${cur?"cur":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
- (p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
+ return`<a class="pc ${cur?"cur":""}${bo(p)!==null?" hb":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
+ (bo(p)!==null?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:"")+(p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
  `<div><div class="n">${esc(dispName(p))}</div>`+(per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
 function refocus(id){fo[curTree]=id;window.scrollTo(0,0);window.drawLay&&window.drawLay()}
 function hstart(id){st[curTree]=id;window.drawLay&&window.drawLay()}
@@ -286,7 +292,7 @@ function hourHtml(T,pool){
  const gk=[...new Map(kids.flatMap(c=>childrenOf(c.id)).map(x=>[x.id,x])).values()];
  const cl=(ps,lbl)=>ps.length?`<div class="hcl">${lbl?`<span class="hl">${lbl}</span>`:""}${ps.map(p=>fcard(p)).join('<span class="heart">♥</span>')}</div>`:"";
  const V='<div class="hv"></div>';
- const opts=[...pool,...(pool.includes(f)?[]:[f])].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+ const opts=[...pool,...(pool.includes(f)?[]:[f])].sort(byName);
  let h=`<div class="tools"><select style="max-width:100%" onchange="refocus(+this.value)">${opts.map(p=>`<option value="${p.id}" ${p.id===f.id?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select></div>
  <div class="mut">Tap anyone to centre the chart on them</div><div class="hg">`;
  if(gF.length||gM.length)h+=`<div class="hcards">${cl(gF,"Father's parents")}${cl(gM,"Mother's parents")}</div>${V}`;
@@ -299,8 +305,11 @@ function hourHtml(T,pool){
 
 
 /* connector lines for the horizontal layout.
-   Every person is drawn once. Marriages inside the family (both people placed in different spots) are joined by a thick dotted line;
-   the children's line starts from the middle of that dotted line. */
+   RULES
+   1. Spouses shown together (heart between them): the children's line starts at that heart.
+   2. Spouses shown in different places: a thick dotted line runs from the bottom-middle of the upper spouse
+      to the top-middle of the lower spouse; the children's line branches off that dotted line just below the upper spouse.
+   3. Every vertical line gets its own lane, so two lines never run on top of each other (they may only cross). */
 const HCOL=["#d98aa6","#6fa3d6","#7fbf8a","#d4a95f","#a28bd4"];
 const LCOL=["#e6194b","#0077b6","#f58231","#7b2cbf","#00897b","#c2185b","#6d4c41"];
 let hRO=null;
@@ -309,34 +318,48 @@ function hLines(){
  const draw=()=>{
   const old=w.querySelector("svg.hsv");if(old)old.remove();
   const wr=w.getBoundingClientRect(),W=w.scrollWidth,H=w.scrollHeight;
-  const X=r=>r.left-wr.left-w.clientLeft+w.scrollLeft,Y=r=>r.top-wr.top-w.clientTop+w.scrollTop;
+  const R=el=>{const r=el.getBoundingClientRect(),l=r.left-wr.left-w.clientLeft+w.scrollLeft,t=r.top-wr.top-w.clientTop+w.scrollTop;
+   return{l,t,r:l+r.width,b:t+r.height,cx:l+r.width/2,cy:t+r.height/2}};
   const card=id=>w.querySelector(`.hc[data-c="${id}"] .pc`);
   const key=(a,b)=>(+a<+b)?a+"-"+b:b+"-"+a;
-  const links={},lanes={},out=[];let li=0;
+  /* lane allocator: first lane whose already-used stretches do not touch [lo,hi] */
+  const lanes={};
+  const lane=(k,lo,hi)=>{const L=lanes[k]||(lanes[k]=[]);
+   for(let i=0;i<L.length;i++)if(!L[i].some(([a,b])=>lo<b+7&&hi>a-7)){L[i].push([lo,hi]);return i}
+   L.push([[lo,hi]]);return L.length-1};
+  const links={},out=[],outN={},inN={};let li=0;
+  /* A) dotted lines between spouses who are shown in different places */
   (w.dataset.pairs||"").split(",").filter(Boolean).forEach(k=>{
    const [a,b]=k.split("-"),ca=card(a),cb=card(b);if(!ca||!cb)return;
    if(ca.closest(".hcp")===cb.closest(".hcp"))return;
-   const A=ca.getBoundingClientRect(),B=cb.getBoundingClientRect();
-   const ax=X(A),bx=X(B),ay=Y(A)+A.height/2,by=Y(B)+B.height/2;
-   const same=Math.abs(ax-bx)<6;
-   const base=Math.round(same?Math.max(ax+A.width,bx+B.width)+8:(ax<bx?ax+A.width:bx+B.width)+8);
-   const n=lanes[base]=(lanes[base]||0)+1,lx=base+4*((n-1)%5);
+   let A=R(ca),B=R(cb);
+   const bFirst=B.cy<A.cy-1||(Math.abs(B.cy-A.cy)<=1&&(ca.compareDocumentPosition(cb)&Node.DOCUMENT_POSITION_PRECEDING));
+   if(bFirst)[A,B]=[B,A];
+   const ka=Math.round(A.l)+"/"+Math.round(A.b),kb=Math.round(B.l)+"/"+Math.round(B.t);
+   const na=outN[ka]=(outN[ka]||0)+1,nb=inN[kb]=(inN[kb]||0)+1;
+   const y1=A.b+5+4*(na-1),y2=B.t-5-4*(nb-1);
+   const base=Math.min(A.r,B.r),i=lane("d"+Math.round(base),Math.min(y1,y2),Math.max(y1,y2)),lx=base+8+8*(i%4);
    const col=LCOL[li++%LCOL.length];
-   const ea=ax+A.width<=lx?ax+A.width:ax,eb=bx+B.width<=lx?bx+B.width:bx;
-   links[k]={mx:lx,my:(ay+by)/2,col};
-   out.push(`<path d="M${ea} ${ay}H${lx}V${by}H${eb}" fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="0.1 7"/>`);
-   out.push(`<circle cx="${lx}" cy="${(ay+by)/2}" r="4.5" fill="${col}"/>`)});
+   const d=y2>y1?1:-1,cy=y1+d*Math.min(8,Math.abs(y2-y1)/2);
+   links[k]={lx,cy,col};
+   out.push(`<path d="M${A.cx} ${A.b}V${y1}H${lx}V${y2}H${B.cx}V${B.t}" fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"/>`);
+   out.push(`<circle cx="${lx}" cy="${cy}" r="4.5" fill="${col}"/>`)});
+  /* B) children lines */
   w.querySelectorAll(".hgrp").forEach(g=>{
-   const sc=card(g.dataset.from);if(!sc)return;
-   const s=sc.getBoundingClientRect();
-   let sx=X(s)+s.width,sy=Y(s)+s.height/2,col=g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc",sw=1.6;
-   const o=g.dataset.other,lk=o?links[key(g.dataset.from,o)]:null;
-   if(lk){sx=lk.mx;sy=lk.my;col=lk.col;sw=2.2}
-   const ks=[...g.querySelectorAll(":scope > .hkid")].map(k=>k.querySelector(".hcp .pc")).filter(Boolean).map(e=>e.getBoundingClientRect());
+   const from=g.dataset.from,other=g.dataset.other,sc=card(from);if(!sc)return;
+   const ks=[...g.querySelectorAll(":scope > .hkid")].map(k=>k.querySelector(".hcp .pc")).filter(Boolean).map(R);
    if(!ks.length)return;
-   const kx=Math.min(...ks.map(X)),bus=kx-14,ys=ks.map(r=>Y(r)+r.height/2);
-   let p=`M${sx} ${sy}H${bus}M${bus} ${Math.min(sy,...ys)}V${Math.max(sy,...ys)}`;
-   ks.forEach((r,i)=>{p+=`M${bus} ${ys[i]}H${X(r)}`});
+   let sx,sy,col=g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc",sw=1.6;
+   const lk=other?links[key(from,other)]:null;
+   const ht=g.dataset.heart==="1"?w.querySelector(`.heart[data-h="${from}"]`):null;
+   if(lk){sx=lk.lx;sy=lk.cy;col=lk.col;sw=2.2}
+   else if(ht){const h=R(ht);sx=h.cx+7;sy=h.cy}
+   else{const s=R(sc);sx=s.r;sy=s.cy}
+   const kx=Math.min(...ks.map(r=>r.l)),ys=ks.map(r=>r.cy),lo=Math.min(sy,...ys),hi=Math.max(sy,...ys);
+   const i=lane("b"+Math.round(kx),lo,hi),bus=kx-9-7*(i%5);
+   let p=`M${sx} ${sy}H${bus}`;
+   if(hi>lo)p+=`M${bus} ${lo}V${hi}`;
+   ks.forEach((r,j)=>{p+=`M${bus} ${ys[j]}H${r.l}`});
    out.push(`<path d="${p}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`)});
   w.insertAdjacentHTML("afterbegin",`<svg class="hsv" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${out.join("")}</svg>`)};
  requestAnimationFrame(draw);
@@ -387,17 +410,17 @@ function horizHtml(T,pool){
  /* 3. draw */
  const hc=p=>`<div class="hc" data-c="${p.id}">${card(p)}</div>`;
  function render(n){
-  const stack=`<div class="hcp">${hc(n.p)}${n.sps.map(s=>`<span class="heart">♥</span>${hc(s)}`).join("")}${n.hidden?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${n.hidden} ${n.hidden>1?"children":"child"} ▸</a>`:""}</div>`;
+  const stack=`<div class="hcp">${hc(n.p)}${n.sps.map(s=>`<span class="heart" data-h="${s.id}">♥</span>${hc(s)}`).join("")}${n.hidden?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${n.hidden} ${n.hidden>1?"children":"child"} ▸</a>`:""}</div>`;
   if(!n.groups.length)return`<div class="hn">${stack}</div>`;
   const multi=n.groups.length>1;
   return`<div class="hn">${stack}<div class="hk">${n.groups.map((g,gi)=>{
    const t=g.k[0],id=+g.k.slice(1),o=P(id);
    const from=t==="c"?id:n.p.id,other=t==="l"?id:"";
    const lab=t==="s"?"other / unlisted":"with "+esc(dispName(o));
-   return`<div class="hgrp" data-from="${from}" data-other="${other}" data-gi="${gi}" data-multi="${multi?1:0}">${multi?`<div class="hlab">${lab}</div>`:""}${g.kids.map(k=>`<div class="hkid">${render(k)}</div>`).join("")}</div>`}).join("")}</div></div>`}
- const cand=people.filter(hasKids).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+   return`<div class="hgrp" data-from="${from}" data-other="${other}" data-gi="${gi}" data-multi="${multi?1:0}" data-heart="${t==="c"?1:0}">${multi?`<div class="hlab">${lab}</div>`:""}${g.kids.map(k=>`<div class="hkid">${render(k)}</div>`).join("")}</div>`}).join("")}</div></div>`}
+ const cand=people.filter(hasKids).sort(byName);
  if(!cand.includes(root))cand.unshift(root);
- return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(+this.value)">${cand.map(p=>`<option value="${p.id}" ${p.id===root.id?"selected":""}>${esc(dispName(p))}</option>`).join("")}</select>
+ return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(+this.value)">${cand.map(p=>`<option value="${p.id}" ${p.id===root.id?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select>
  <select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
  <div class="mut">Scroll sideways · tap a name for the full record · tap "children ▸" to start from there</div>
  <div class="hwrap" data-pairs="${[...pairs].join(",")}">${render(tree)}</div>`}
