@@ -74,6 +74,8 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .mc .kv{margin-top:6px;font-size:.85rem}
 #top{position:fixed;right:14px;bottom:18px;width:44px;height:44px;border-radius:50%;padding:0;font-size:1.3rem;box-shadow:0 2px 8px #0004;z-index:20;display:none}
 @media(max-width:600px){.bt{display:none}nav a{padding:8px 10px}}
+.sb{position:relative}.sb input{padding-right:40px}
+.qc{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--mut);font-size:1.1rem;padding:8px 12px;line-height:1}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
@@ -173,6 +175,7 @@ window.addEventListener("hashchange",()=>{renderNav();route();window.scrollTo(0,
 $("#who").onclick=()=>{location.hash="#/login"};
 
 function route(){
+ if(/error_description=/.test(location.hash)){const m=decodeURIComponent((location.hash.match(/error_description=([^&]*)/)[1]||"").replace(/\+/g," "));$("#app").innerHTML=`<div class="status warn">Sign-in failed: ${esc(m)}<br>Request a new link from 👤 and open it right away.</div>`;return}
  const [,a,b]=(location.hash.slice(1)||"/").split("/");
  const app=$("#app");
  if(a==="login")return viewLogin(app);
@@ -248,13 +251,14 @@ function rec(p,full){
 
 function viewMembers(app){
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
- app.innerHTML=`<input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}">
+ app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
  <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div><div id="list"></div>`;
- const draw=()=>{const t=q.trim().toLowerCase();
+ const draw=()=>{$("#qc").hidden=!q;const t=q.trim().toLowerCase();
   const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(!t||[p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   $("#cnt").textContent=`${r.length} of ${people.length}`;$("#list").innerHTML=r.map(p=>rec(p,false)).join("")};
  $("#q").oninput=e=>{q=e.target.value;draw()};
+ $("#qc").onclick=()=>{q="";$("#q").value="";$("#q").focus();draw()};
  document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));draw()});
  draw()}
 
@@ -335,12 +339,12 @@ function viewLogin(app){
   <div class="row"><button id="lo">Sign out</button></div></div>`;
   $("#lo").onclick=async()=>{await sb.auth.signOut();location.hash="#/"};return}
  app.innerHTML=`<h2>Sign in</h2><div class="sec"><div id="lm" class="mut"></div>
-  <div id="s1"><label>Email</label><input id="em" type="email" autocomplete="email"><div class="row"><button id="go">Send code</button></div></div>
-  <div id="s2" hidden><label>Code from your email</label><input id="cd" inputmode="numeric" autocomplete="one-time-code"><div class="row"><button id="vf">Verify</button></div></div></div>`;
+  <div class="mut">This app's address (must match Supabase Site URL):<br><b style="overflow-wrap:anywhere">${esc(location.origin+location.pathname)}</b></div><div id="s1"><label>Email</label><input id="em" type="email" autocomplete="email"><div class="row"><button id="go">Email me a sign-in link</button></div></div>
+  <div id="s2" hidden><p>Open the email on this phone and tap <b>Sign in</b>. The app opens already signed in.</p><label>Or, if your email has a 6-digit code, type it here</label><input id="cd" inputmode="numeric" autocomplete="one-time-code"><div class="row"><button id="vf">Verify</button></div></div></div>`;
  $("#go").onclick=async()=>{const email=$("#em").value.trim();if(!email)return;
   const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
   if(error)return $("#lm").textContent=error.message;
-  $("#s1").hidden=true;$("#s2").hidden=false;$("#lm").textContent="Code sent to "+email};
+  $("#s1").hidden=true;$("#s2").hidden=false;$("#lm").textContent="Email sent to "+email};
  $("#vf").onclick=async()=>{
   const em=$("#em").value.trim(),tk=$("#cd").value.trim();
   let {error}=await sb.auth.verifyOtp({email:em,token:tk,type:"email"});
