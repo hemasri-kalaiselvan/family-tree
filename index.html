@@ -333,24 +333,24 @@ function openMarriage(id,pid){
 async function delMarriage(id){if(!confirm("Delete this marriage record?"))return;
  const {error}=await sb.from("ft_marriages").delete().eq("id",id);if(error)return alert(error.message);await load()}
 
-/* ---------- login (email OTP; free) ---------- */
+/* ---------- login: email + 6-digit code only ---------- */
 function viewLogin(app){
  if(session){app.innerHTML=`<h2>Account</h2><div class="sec">Signed in as <b>${esc(session.user.email||session.user.phone)}</b><br>Access: <b>${role||"pending – ask the admin to approve you"}</b>
   <div class="row"><button id="lo">Sign out</button></div></div>`;
   $("#lo").onclick=async()=>{await sb.auth.signOut();location.hash="#/"};return}
  app.innerHTML=`<h2>Sign in</h2><div class="sec"><div id="lm" class="mut"></div>
-  <div class="mut">This app's address (must match Supabase Site URL):<br><b style="overflow-wrap:anywhere">${esc(location.origin+location.pathname)}</b></div><div id="s1"><label>Email</label><input id="em" type="email" autocomplete="email"><div class="row"><button id="go">Email me a sign-in link</button></div></div>
-  <div id="s2" hidden><p>Open the email on this phone and tap <b>Sign in</b>. The app opens already signed in.</p><label>Or, if your email has a 6-digit code, type it here</label><input id="cd" inputmode="numeric" autocomplete="one-time-code"><div class="row"><button id="vf">Verify</button></div></div></div>`;
+  <div id="s1"><label>Email</label><input id="em" type="email" autocomplete="email"><div class="row"><button id="go">Send code</button></div></div>
+  <div id="s2" hidden><label>6-digit code from your email</label><input id="cd" inputmode="numeric" autocomplete="one-time-code"><div class="row"><button id="vf">Verify</button></div></div></div>`;
  $("#go").onclick=async()=>{const email=$("#em").value.trim();if(!email)return;
-  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+  $("#go").disabled=true;
+  const {error}=await sb.auth.signInWithOtp({email});
+  $("#go").disabled=false;
   if(error)return $("#lm").textContent=error.message;
-  $("#s1").hidden=true;$("#s2").hidden=false;$("#lm").textContent="Email sent to "+email};
+  $("#s1").hidden=true;$("#s2").hidden=false;$("#lm").textContent="Code sent to "+email};
  $("#vf").onclick=async()=>{
   const em=$("#em").value.trim(),tk=$("#cd").value.trim();
   let {error}=await sb.auth.verifyOtp({email:em,token:tk,type:"email"});
   if(error)({error}=await sb.auth.verifyOtp({email:em,token:tk,type:"signup"}));
   if(error)return $("#lm").textContent=error.message;location.hash="#/"};
- /* Phone OTP (needs a paid SMS provider in Supabase):
-    sb.auth.signInWithOtp({phone:"+91XXXXXXXXXX"}) then sb.auth.verifyOtp({phone,token,type:"sms"}) */
 }
 </script></body></html>
