@@ -82,6 +82,13 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .bulk{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;align-items:center;z-index:25;box-shadow:0 -2px 8px #0002}
 .bulk[hidden]{display:none}.bulk b{margin-right:auto;font-size:.95rem}
 body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
+.couple{flex-wrap:nowrap;gap:4px;align-items:stretch}
+.couple .heart{flex:none;align-self:center;font-size:.9rem}
+.pc{min-width:0;padding:4px 8px;gap:6px;border-radius:10px}
+.pc img{width:32px;height:32px}
+.pc .n{font-size:.8rem;line-height:1.2}
+.pc .p{font-size:.68rem}
+.kids{margin-left:10px;padding-left:8px}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
@@ -140,7 +147,7 @@ function fmtTime(v){const t=normTime(v);if(!t)return String(v||"");let[h,mi]=t.s
 const isLate=p=>p.is_late??(p.life_status==="deceased"||!!p.dod);
 function period(p){const b=fmtDate(p.dob),d=fmtDate(p.dod);
  if(b&&d)return`${b} – ${d}`;
- if(b)return isLate(p)?`${b} – ?`:`b. ${b}`;
+ if(b)return isLate(p)?`${b} – ?`:b;
  if(d)return`d. ${d}`;return""}
 const dispName=p=>(isLate(p)?"Late ":"")+(p.name||"Unnamed");
 const nm=id=>{const p=P(id);return p?dispName(p):""};
@@ -200,23 +207,22 @@ function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
  const hasPar=p=>p.father_id||p.mother_id;
- const shown=new Set(),expanded=new Set();
- function unit(p,depth){
+ const shown=new Set();
+ function unit(p,depth,path){
   const sps=spouseIds(p.id).map(P).filter(Boolean);
   const ids=[p.id,...sps.map(s=>s.id)];
   const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
   ids.forEach(i=>shown.add(i));
-  let kids=[];
-  if(!expanded.has(p.id)){ids.forEach(i=>expanded.add(i));
-   kids=people.filter(c=>ids.includes(c.father_id)||ids.includes(c.mother_id)).sort((x,y)=>key(x)-key(y)||cmp(x,y))}
+  const np=path.concat(ids);
+  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
   const couple=`<div class="couple">${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}</div>`;
   if(!kids.length)return`<div>${couple}</div>`;
-  return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1)).join("")}</div></details>`}
+  return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1,np)).join("")}</div></details>`}
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const isolated=p=>!hasPar(p)&&!spouseIds(p.id).length&&!childrenOf(p.id).length;
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&!isolated(p)).sort((a,b)=>a.id-b.id);
  let html="";
- roots.forEach(r=>{if(!shown.has(r.id))html+=`<div class="sec">${unit(r,0)}</div>`});
+ roots.forEach(r=>{if(!shown.has(r.id))html+=`<div class="sec">${unit(r,0,[])}</div>`});
  const others=pool.filter(isolated);
  app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2><div class="mut">${pool.length} people · tap a name for full record · tap ▸ to expand</div>
  <div class="tools"><button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=true)">Expand all</button>
