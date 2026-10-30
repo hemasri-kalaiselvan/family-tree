@@ -77,6 +77,11 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 @media(max-width:600px){.bt{display:none}nav a{padding:8px 10px}}
 .sb{position:relative}.sb input{padding-right:40px}
 .qc{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--mut);font-size:1.1rem;padding:8px 12px;line-height:1}
+.srow{display:flex;gap:8px;align-items:flex-start}.srow .mc{flex:1;min-width:0}
+.sc{width:24px;height:24px;margin-top:14px;flex:none}
+.bulk{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;align-items:center;z-index:25;box-shadow:0 -2px 8px #0002}
+.bulk[hidden]{display:none}.bulk b{margin-right:auto;font-size:.95rem}
+body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
@@ -177,6 +182,7 @@ window.addEventListener("hashchange",()=>{renderNav();route();window.scrollTo(0,
 $("#who").onclick=()=>{location.hash="#/login"};
 
 function route(){
+ document.body.classList.remove("bulkon");if(!/^#\/members/.test(location.hash)){selMode=false;sel.clear()}
  if(/error_description=/.test(location.hash)){const m=decodeURIComponent((location.hash.match(/error_description=([^&]*)/)[1]||"").replace(/\+/g," "));$("#app").innerHTML=`<div class="status warn">Sign-in failed: ${esc(m)}<br>Request a new link from 👤 and open it right away.</div>`;return}
  const [,a,b]=(location.hash.slice(1)||"/").split("/");
  const app=$("#app");
@@ -271,18 +277,52 @@ function rec(p,full){
   ${ln("Spouse",spH)}${kidsH}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
   ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a>`}</div>`}
 
+let selMode=false;const sel=new Set();
 function viewMembers(app){
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
- <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div><div id="list"></div>`;
+ <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}${canEdit()?`<span id="selb" class="chip ${selMode?"on":""}">☑ Select</span>`:""}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
+ <div id="list"></div>
+ <div id="bulk" class="bulk" hidden><b id="bc"></b><button id="ball" class="alt">All shown</button><button id="bnone" class="alt">Clear</button><button id="bgo">Set status…</button></div>`;
+ let shown=[];
+ const bar=()=>{$("#bulk").hidden=!selMode;document.body.classList.toggle("bulkon",selMode);$("#bc").textContent=sel.size+" selected"};
  const draw=()=>{$("#qc").hidden=!q;const t=q.trim().toLowerCase();
   const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(!t||[p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-  $("#cnt").textContent=`${r.length} of ${people.length}`;$("#list").innerHTML=r.map(p=>rec(p,false)).join("")};
+  shown=r.map(p=>p.id);
+  $("#cnt").textContent=`${r.length} of ${people.length}`;
+  $("#list").innerHTML=r.map(p=>selMode?`<div class="srow"><input type="checkbox" class="sc" data-id="${p.id}" ${sel.has(p.id)?"checked":""} aria-label="Select">${rec(p,false)}</div>`:rec(p,false)).join("");
+  bar()};
  $("#q").oninput=e=>{q=e.target.value;draw()};
  $("#qc").onclick=()=>{q="";$("#q").value="";$("#q").focus();draw()};
- document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));draw()});
+ document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
+ if(canEdit()){
+  $("#selb").onclick=()=>{selMode=!selMode;if(!selMode)sel.clear();viewMembers($("#app"))};
+  $("#list").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("sc")){const id=+c.dataset.id;c.checked?sel.add(id):sel.delete(id);bar()}};
+  $("#ball").onclick=()=>{shown.forEach(id=>sel.add(id));draw()};
+  $("#bnone").onclick=()=>{sel.clear();draw()};
+  $("#bgo").onclick=openBulk}
  draw()}
+
+function openBulk(){
+ if(!sel.size)return alert("Select at least one person first.");
+ const d=$("#dlg");
+ d.innerHTML=`<h2>Update ${sel.size} people</h2><div id="msg" class="mut" style="color:var(--red)"></div>
+ <label>Status</label><select id="bs"><option value="deceased">Deceased</option><option value="alive">Alive</option><option value="unknown">Unknown</option></select>
+ <label>Date of death (optional, Deceased only)</label><input id="bd" placeholder="YYYY-MM-DD or YYYY-MM or YYYY">
+ <p class="mut">Leave the date empty if it is not known. Alive / Unknown also clears any date of death.</p>
+ <div class="row" style="justify-content:flex-end"><button class="alt" id="cx">Cancel</button><button id="sv">Apply</button></div>`;
+ $("#cx").onclick=()=>d.close();
+ $("#sv").onclick=async()=>{
+  const s=$("#bs").value,dd=$("#bd").value.trim();
+  if(dd&&!/^\d{4}(-\d{2}(-\d{2})?)?$/.test(dd))return $("#msg").textContent="Date: use YYYY-MM-DD, YYYY-MM or YYYY";
+  const payload={life_status:s};
+  if(s!=="deceased")payload.dod=null;else if(dd)payload.dod=dd;
+  $("#sv").disabled=true;
+  const {error}=await sb.from("ft_people").update(payload).in("id",[...sel]);
+  if(error){$("#msg").textContent=error.message;$("#sv").disabled=false;return}
+  selMode=false;sel.clear();d.close();await load()};
+ d.showModal()}
 
 function viewPerson(app,id){
  const p=P(id);
