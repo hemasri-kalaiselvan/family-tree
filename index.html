@@ -103,12 +103,12 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hcp .pc{min-width:0;width:100%}
 .hcp .heart{text-align:center;line-height:.9;font-size:.8rem}
 .hmore{font-size:.72rem;color:var(--pri);text-align:center;padding:2px 0;font-weight:600}
-.hk{display:flex;flex-direction:column;margin-left:22px;position:relative}
-.hk::before{content:"";position:absolute;left:-22px;top:50%;width:22px;border-top:1px solid #b9c6dc}
-.hkid{position:relative;padding:4px 0 4px 22px}
-.hkid::before{content:"";position:absolute;left:0;top:50%;width:22px;border-top:1px solid #b9c6dc}
-.hkid::after{content:"";position:absolute;left:0;top:0;bottom:0;border-left:1px solid #b9c6dc}
-.hkid:first-child::after{top:50%}.hkid:last-child::after{bottom:50%}.hkid:only-child::after{display:none}
+.hwrap{position:relative}
+.hk{display:flex;flex-direction:column;gap:14px;margin-left:34px}
+.hgrp{display:flex;flex-direction:column;gap:8px}
+.hlab{font-size:.7rem;font-weight:600;color:var(--mut)}
+.hsv{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.hdup{font-size:.7rem;color:var(--mut);text-align:center;margin-top:2px}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
@@ -240,7 +240,7 @@ function viewTree(app,T){
  const L=[["tree","Tree"],["hour","Hourglass"],["horiz","Horizontal"]];
  app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
- const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):horizHtml(T,pool)};
+ const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):horizHtml(T,pool);if(lay==="horiz")hLines()};
  window.drawLay=draw;
  document.querySelectorAll(".chip[data-l]").forEach(c=>c.onclick=()=>{lay=c.dataset.l;document.querySelectorAll(".chip[data-l]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  draw()}
@@ -296,6 +296,35 @@ function hourHtml(T,pool){
  if(gk.length)h+=`<details class="hgk"><summary>Grandchildren (${gk.length})</summary><div class="hcards" style="margin-top:6px">${gk.map(c=>fcard(c)).join("")}</div></details>`;
  return h+`</div>`}
 
+
+/* connector lines for the horizontal layout: each line starts at the exact parent card (the wife's, for her kids) and ends at each child's card */
+const HCOL=["#d98aa6","#6fa3d6","#7fbf8a","#d4a95f","#a28bd4"];
+let hRO=null;
+function hLines(){
+ const w=document.querySelector(".hwrap");if(!w)return;
+ const draw=()=>{
+  const old=w.querySelector("svg.hsv");if(old)old.remove();
+  const wr=w.getBoundingClientRect(),W=w.scrollWidth,H=w.scrollHeight;
+  const X=r=>r.left-wr.left-w.clientLeft+w.scrollLeft,Y=r=>r.top-wr.top-w.clientTop+w.scrollTop;
+  const paths=[];
+  w.querySelectorAll(".hgrp").forEach(g=>{
+   const hn=g.closest(".hn");
+   const sc=hn.querySelector(`:scope > .hcp > .hc[data-c="${g.dataset.from}"] .pc`);if(!sc)return;
+   const s=sc.getBoundingClientRect(),sx=X(s)+s.width,sy=Y(s)+s.height/2;
+   const ks=[...g.querySelectorAll(":scope > .hkid")].map(k=>k.querySelector(".hcp .pc")).filter(Boolean).map(e=>e.getBoundingClientRect());
+   if(!ks.length)return;
+   const kx=Math.min(...ks.map(X)),bus=kx-14,ys=ks.map(r=>Y(r)+r.height/2);
+   let p=`M${sx} ${sy}H${bus}M${bus} ${Math.min(sy,...ys)}V${Math.max(sy,...ys)}`;
+   ks.forEach((r,i)=>{p+=`M${bus} ${ys[i]}H${X(r)}`});
+   paths.push([p,g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc"])});
+  const svg=`<svg class="hsv" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${paths.map(([p,c])=>`<path d="${p}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linejoin="round"/>`).join("")}</svg>`;
+  w.insertAdjacentHTML("afterbegin",svg)};
+ requestAnimationFrame(draw);
+ if(hRO)hRO.disconnect();
+ const root=w.querySelector(":scope > .hn");
+ if(root&&window.ResizeObserver){let t;hRO=new ResizeObserver(()=>{clearTimeout(t);t=setTimeout(draw,30)});hRO.observe(root)}
+ w.addEventListener("load",()=>setTimeout(draw,0),true)}
+
 /* ---- layout 3: horizontal descendants ---- */
 function horizHtml(T,pool){
  if(!pool.length)return'<div class="status">No people yet.</div>';
@@ -304,15 +333,22 @@ function horizHtml(T,pool){
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
  let root=P(st[T])||roots[0]||pool[0];
  st[T]=root.id;
+ const drawn=new Set();
+ const hc=p=>`<div class="hc" data-c="${p.id}">${card(p)}</div>`;
  function node(p,d,path){
+  if(drawn.has(p.id))return`<div class="hn"><div class="hcp">${hc(p)}<div class="hdup">↑ shown above</div></div></div>`;
   const sps=spouseIds(p.id).map(P).filter(Boolean);
   const ids=[p.id,...sps.map(s=>s.id)];
-  const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
+  ids.forEach(i=>drawn.add(i));
   const np=path.concat(ids);
-  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-  const box=`<div class="hcp">${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}${kids.length&&d>=depthN?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${p.id})">${kids.length} ${kids.length>1?"children":"child"} ▸</a>`:""}</div>`;
+  const src=c=>[c.father_id,c.mother_id].find(i=>i!==p.id&&ids.includes(i))||p.id;
+  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id));
+  const box=`<div class="hcp">${hc(p)}${sps.map(s=>`<span class="heart">♥</span>${hc(s)}`).join("")}${kids.length&&d>=depthN?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${p.id})">${kids.length} ${kids.length>1?"children":"child"} ▸</a>`:""}</div>`;
   if(!kids.length||d>=depthN)return`<div class="hn">${box}</div>`;
-  return`<div class="hn">${box}<div class="hk">${kids.map(k=>`<div class="hkid">${node(k,d+1,np)}</div>`).join("")}</div></div>`}
+  const groups=ids.map(i=>[i,kids.filter(c=>src(c)===i).sort(cmp)]).filter(([,g])=>g.length);
+  const multi=groups.length>1;
+  const lab=i=>i===p.id?"other / unlisted":"with "+esc(dispName(P(i)));
+  return`<div class="hn">${box}<div class="hk">${groups.map(([i,g],gi)=>`<div class="hgrp" data-from="${i}" data-gi="${gi}" data-multi="${multi?1:0}">${multi?`<div class="hlab">${lab(i)}</div>`:""}${g.map(k=>`<div class="hkid">${node(k,d+1,np)}</div>`).join("")}</div>`).join("")}</div></div>`}
  const cand=people.filter(hasKids).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
  if(!cand.includes(root))cand.unshift(root);
  return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(+this.value)">${cand.map(p=>`<option value="${p.id}" ${p.id===root.id?"selected":""}>${esc(dispName(p))}</option>`).join("")}</select>
