@@ -89,6 +89,26 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .kids{margin-left:10px;padding-left:8px}
 .tg{flex:none;width:34px;display:flex;align-items:center;justify-content:center;color:var(--pri);font-size:1.15rem;margin-right:8px;cursor:pointer;user-select:none;transition:transform .15s}
 .tw[open]>summary .tg{transform:rotate(90deg)}
+.pc.cur{border-color:var(--pri);background:#e7eef8}
+.hg{margin-top:8px}.hcards{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center}
+.hcards .pc{min-width:0;max-width:100%}
+.hcl{display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;background:#eef2f9;border-radius:12px;padding:4px 6px;position:relative}
+.hcl.cur{background:#dde8f7}
+.hl{font-size:.72rem;color:var(--mut);text-align:center;width:100%;display:block}
+.hv{height:16px;width:0;border-left:1px solid #b9c6dc;margin:0 auto}
+.hgk{margin-top:12px}.hgk>summary{color:var(--pri);font-weight:600;text-align:center}
+.hwrap{overflow-x:auto;overflow-y:visible;padding:8px 6px 14px;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.hn{display:flex;align-items:center;width:max-content}
+.hcp{display:flex;flex-direction:column;gap:1px;width:128px;flex:none}
+.hcp .pc{min-width:0;width:100%}
+.hcp .heart{text-align:center;line-height:.9;font-size:.8rem}
+.hmore{font-size:.72rem;color:var(--pri);text-align:center;padding:2px 0;font-weight:600}
+.hk{display:flex;flex-direction:column;margin-left:22px;position:relative}
+.hk::before{content:"";position:absolute;left:-22px;top:50%;width:22px;border-top:1px solid #b9c6dc}
+.hkid{position:relative;padding:4px 0 4px 22px}
+.hkid::before{content:"";position:absolute;left:0;top:50%;width:22px;border-top:1px solid #b9c6dc}
+.hkid::after{content:"";position:absolute;left:0;top:0;bottom:0;border-left:1px solid #b9c6dc}
+.hkid:first-child::after{top:50%}.hkid:last-child::after{bottom:50%}.hkid:only-child::after{display:none}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
@@ -202,11 +222,31 @@ function route(){
  viewTree(app,"vetri")}
 
 /* ---------- Tree (home) ---------- */
-let curTree="vetri";
+let curTree="vetri",lay="hour",depthN=3,depthV="3";
+const fo={},st={};
+function fcard(p,cur){
+ const per=period(p);
+ return`<a class="pc ${cur?"cur":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
+ (p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
+ `<div><div class="n">${esc(dispName(p))}</div>`+(per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
+function refocus(id){fo[curTree]=id;window.scrollTo(0,0);window.drawLay&&window.drawLay()}
+function hstart(id){st[curTree]=id;window.drawLay&&window.drawLay()}
+function hdepth(v){depthV=v;depthN=v==="all"?99:+v;window.drawLay&&window.drawLay()}
+const hasPar=p=>p.father_id||p.mother_id;
+
 function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
- const hasPar=p=>p.father_id||p.mother_id;
+ const L=[["tree","Tree"],["hour","Hourglass"],["horiz","Horizontal"]];
+ app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
+ <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
+ const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):horizHtml(T,pool)};
+ window.drawLay=draw;
+ document.querySelectorAll(".chip[data-l]").forEach(c=>c.onclick=()=>{lay=c.dataset.l;document.querySelectorAll(".chip[data-l]").forEach(x=>x.classList.toggle("on",x===c));draw()});
+ draw()}
+
+/* ---- layout 1: indented tree ---- */
+function treeHtml(T,pool){
  const shown=new Set();
  function unit(p,depth,path){
   const sps=spouseIds(p.id).map(P).filter(Boolean);
@@ -224,11 +264,61 @@ function viewTree(app,T){
  let html="";
  roots.forEach(r=>{if(!shown.has(r.id))html+=`<div class="sec">${unit(r,0,[])}</div>`});
  const others=pool.filter(isolated);
- app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2><div class="mut">${pool.length} people · tap a name for full record · tap ▸ to expand</div>
+ return`<div class="mut">Tap a name for the full record · tap ▸ to expand</div>
  <div class="tools"><button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=true)">Expand all</button>
  <button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=false)">Collapse all</button></div>
  ${html||'<div class="status">No people yet.</div>'}
  ${others.length?`<details class="sec"><summary><b>Not yet linked (${others.length})</b></summary><div class="grid" style="margin-top:8px">${others.map(card).join("")}</div></details>`:""}`}
+
+/* ---- layout 2: hourglass ---- */
+function hourHtml(T,pool){
+ if(!pool.length)return'<div class="status">No people yet.</div>';
+ let f=P(fo[T]);
+ if(!f)f=(T==="rajmohan"?people.find(p=>p.name==="Rajmohan"):people.find(p=>p.name==="Vetriselvi"))||pool[0];
+ fo[T]=f.id;
+ const fa=P(f.father_id),mo=P(f.mother_id);
+ const par=x=>x?[P(x.father_id),P(x.mother_id)].filter(Boolean):[];
+ const gF=par(fa),gM=par(mo);
+ const sps=spouseIds(f.id).map(P).filter(Boolean);
+ const ids=[f.id,...sps.map(s=>s.id)];
+ const kids=people.filter(c=>ids.includes(c.father_id)||ids.includes(c.mother_id)).sort(cmp);
+ const gk=[...new Map(kids.flatMap(c=>childrenOf(c.id)).map(x=>[x.id,x])).values()];
+ const cl=(ps,lbl)=>ps.length?`<div class="hcl">${lbl?`<span class="hl">${lbl}</span>`:""}${ps.map(p=>fcard(p)).join('<span class="heart">♥</span>')}</div>`:"";
+ const V='<div class="hv"></div>';
+ const opts=[...pool,...(pool.includes(f)?[]:[f])].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+ let h=`<div class="tools"><select style="max-width:100%" onchange="refocus(+this.value)">${opts.map(p=>`<option value="${p.id}" ${p.id===f.id?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select></div>
+ <div class="mut">Tap anyone to centre the chart on them</div><div class="hg">`;
+ if(gF.length||gM.length)h+=`<div class="hcards">${cl(gF,"Father's parents")}${cl(gM,"Mother's parents")}</div>${V}`;
+ if(fa||mo)h+=`<div class="hcards">${cl([fa,mo].filter(Boolean),"Parents")}</div>${V}`;
+ h+=`<div class="hcards"><div class="hcl cur">${fcard(f,true)}${sps.map(s=>`<span class="heart">♥</span>${fcard(s)}`).join("")}</div></div>
+ <div class="hcards" style="margin-top:6px"><a class="btn alt" href="#/person/${f.id}">Open full record ›</a></div>`;
+ if(kids.length)h+=`${V}<div class="hl">Children</div><div class="hcards">${kids.map(c=>fcard(c)).join("")}</div>`;
+ if(gk.length)h+=`<details class="hgk"><summary>Grandchildren (${gk.length})</summary><div class="hcards" style="margin-top:6px">${gk.map(c=>fcard(c)).join("")}</div></details>`;
+ return h+`</div>`}
+
+/* ---- layout 3: horizontal descendants ---- */
+function horizHtml(T,pool){
+ if(!pool.length)return'<div class="status">No people yet.</div>';
+ const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
+ const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
+ const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
+ let root=P(st[T])||roots[0]||pool[0];
+ st[T]=root.id;
+ function node(p,d,path){
+  const sps=spouseIds(p.id).map(P).filter(Boolean);
+  const ids=[p.id,...sps.map(s=>s.id)];
+  const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
+  const np=path.concat(ids);
+  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
+  const box=`<div class="hcp">${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}${kids.length&&d>=depthN?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${p.id})">${kids.length} ${kids.length>1?"children":"child"} ▸</a>`:""}</div>`;
+  if(!kids.length||d>=depthN)return`<div class="hn">${box}</div>`;
+  return`<div class="hn">${box}<div class="hk">${kids.map(k=>`<div class="hkid">${node(k,d+1,np)}</div>`).join("")}</div></div>`}
+ const cand=people.filter(hasKids).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+ if(!cand.includes(root))cand.unshift(root);
+ return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(+this.value)">${cand.map(p=>`<option value="${p.id}" ${p.id===root.id?"selected":""}>${esc(dispName(p))}</option>`).join("")}</select>
+ <select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
+ <div class="mut">Scroll sideways · tap a name for the full record · tap "children ▸" to start from there</div>
+ <div class="hwrap">${node(root,1,[])}</div>`}
 
 /* ---------- Members + record ---------- */
 let q="",mf="all";
