@@ -28,8 +28,8 @@ label{display:block;margin:10px 0 2px;font-size:.85rem;color:var(--mut)}
 .pc{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:120px;max-width:100%;flex:0 1 auto}
 .pc:hover{border-color:var(--pri)}
 .pc{position:relative}
-.pc.hb{padding-left:15px}
-.bn{position:absolute;left:-9px;top:-9px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--pri);color:#fff;font-size:.66rem;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px #fff;z-index:2;pointer-events:none}
+.pc.hb{padding-left:28px}
+.bn{position:absolute;left:6px;top:50%;transform:translateY(-50%);min-width:15px;height:15px;padding:0 3px;box-sizing:border-box;border-radius:8px;background:var(--pri);color:#fff;font-size:.58rem;font-weight:700;line-height:15px;text-align:center;pointer-events:none}
 .pc img{width:46px;height:46px;border-radius:50%;object-fit:cover;flex:none}
 .pc .n{font-weight:600;font-size:.92rem;overflow-wrap:break-word}
 .pc .t{font-size:.9rem;color:var(--ink)}
@@ -107,7 +107,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hcp .heart{text-align:center;line-height:.9;font-size:.8rem;position:relative;z-index:1}
 .hmore{font-size:.72rem;color:var(--pri);text-align:center;padding:2px 0;font-weight:600}
 .hwrap{position:relative}
-.hk{display:flex;flex-direction:column;gap:26px;margin-left:72px}
+.hk{display:flex;flex-direction:column;gap:26px;margin-left:104px}
 .hc{position:relative;z-index:1}
 .hgrp{display:flex;flex-direction:column;gap:20px}
 .hlab{font-size:.7rem;font-weight:600;color:var(--mut)}
@@ -178,13 +178,13 @@ const sortKey=p=>dispName(p).replace(/^\s*late\s+/i,"").toLowerCase();
 const byName=(a,b)=>sortKey(a).localeCompare(sortKey(b),undefined,{sensitivity:"base"})||a.id-b.id;
 const dispName=p=>(isLate(p)?"Late ":"")+(p.name||"Unnamed");
 const nm=id=>{const p=P(id);return p?dispName(p):""};
-function card(p){
- const per=period(p);
- return`<a class="pc${bo(p)!==null?" hb":""}" href="#/person/${p.id}">`+
- (bo(p)!==null?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:"")+(p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
+function card(p,o){
+ const per=period(p),num=bo(p)!==null&&!(o&&o.nn);
+ return`<a class="pc${num?" hb":""}" href="#/person/${p.id}">`+
+ (num?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:"")+(p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
  `<div><div class="n">${esc(dispName(p))}</div>`+
- 
  (per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
+const cardNN=p=>card(p,{nn:1});
 const bo=p=>{const n=Number(p.birth_order);return p.birth_order==null||!isFinite(n)?null:n};
 function cmp(a,b){const x=bo(a),y=bo(b);if(x===null&&y===null)return a.id-b.id;if(x===null)return 1;if(y===null)return-1;return x-y||a.id-b.id}
 const spouseIds=id=>[...new Set(marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>m.person1_id===id?m.person2_id:m.person1_id))];
@@ -229,12 +229,12 @@ function route(){
  viewTree(app,"vetri")}
 
 /* ---------- Tree (home) ---------- */
-let curTree="vetri",lay="hour",depthN=3,depthV="3";
+let curTree="vetri",lay="horiz",depthN=99,depthV="all";
 const fo={},st={};
 function fcard(p,cur){
  const per=period(p);
- return`<a class="pc ${cur?"cur":""}${bo(p)!==null?" hb":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
- (bo(p)!==null?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:"")+(p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
+ return`<a class="pc ${cur?"cur":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
+ (p.photo_url?`<img loading="lazy" src="${esc(p.photo_url)}" alt="">`:"")+
  `<div><div class="n">${esc(dispName(p))}</div>`+(per?`<div class="p">${esc(per)}</div>`:"")+`</div></a>`}
 function refocus(id){fo[curTree]=id;window.scrollTo(0,0);window.drawLay&&window.drawLay()}
 function hstart(id){st[curTree]=id;window.drawLay&&window.drawLay()}
@@ -244,7 +244,7 @@ const hasPar=p=>p.father_id||p.mother_id;
 function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
- const L=[["tree","Tree"],["hour","Hourglass"],["horiz","Horizontal"]];
+ const L=[["tree","Outline"],["hour","Hourglass"],["horiz","Horizontal"]];
  app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
  const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):horizHtml(T,pool);if(lay==="horiz")hLines()};
@@ -262,7 +262,7 @@ function treeHtml(T,pool){
   ids.forEach(i=>shown.add(i));
   const np=path.concat(ids);
   const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-  const couple=`<div class="couple">${kids.length?`<span class="tg">▸</span>`:""}${card(p)}${sps.map(s=>`<span class="heart">♥</span>${card(s)}`).join("")}</div>`;
+  const couple=`<div class="couple">${kids.length?`<span class="tg">▸</span>`:""}${cardNN(p)}${sps.map(s=>`<span class="heart">♥</span>${cardNN(s)}`).join("")}</div>`;
   if(!kids.length)return`<div>${couple}</div>`;
   return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1,np)).join("")}</div></details>`}
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
@@ -275,7 +275,7 @@ function treeHtml(T,pool){
  <div class="tools"><button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=true)">Expand all</button>
  <button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=false)">Collapse all</button></div>
  ${html||'<div class="status">No people yet.</div>'}
- ${others.length?`<details class="sec"><summary><b>Not yet linked (${others.length})</b></summary><div class="grid" style="margin-top:8px">${others.map(card).join("")}</div></details>`:""}`}
+ ${others.length?`<details class="sec"><summary><b>Not yet linked (${others.length})</b></summary><div class="grid" style="margin-top:8px">${others.map(cardNN).join("")}</div></details>`:""}`}
 
 /* ---- layout 2: hourglass ---- */
 function hourHtml(T,pool){
@@ -311,7 +311,7 @@ function hourHtml(T,pool){
       to the top-middle of the lower spouse; the children's line branches off that dotted line just below the upper spouse.
    3. Every vertical line gets its own lane, so two lines never run on top of each other (they may only cross). */
 const HCOL=["#d98aa6","#6fa3d6","#7fbf8a","#d4a95f","#a28bd4"];
-const LCOL=["#e6194b","#0077b6","#f58231","#7b2cbf","#00897b","#c2185b","#6d4c41"];
+const LCOL=["#e6194b","#0077b6","#2e9e47","#7b2cbf","#e08a00","#00a6a6","#6d4c41"];
 let hRO=null;
 function hLines(){
  const w=document.querySelector(".hwrap");if(!w)return;
@@ -337,13 +337,21 @@ function hLines(){
    if(bFirst)[A,B]=[B,A];
    const ka=Math.round(A.l)+"/"+Math.round(A.b),kb=Math.round(B.l)+"/"+Math.round(B.t);
    const na=outN[ka]=(outN[ka]||0)+1,nb=inN[kb]=(inN[kb]||0)+1;
-   const y1=A.b+5+4*(na-1),y2=B.t-5-4*(nb-1);
-   const base=Math.min(A.r,B.r),i=lane("d"+Math.round(base),Math.min(y1,y2),Math.max(y1,y2)),lx=base+8+8*(i%4);
+   const gap=B.t-A.b,drop=gap>=64?30:Math.max(5,gap/2-4);
+   const y1=A.b+drop+4*(na-1),y2=B.t-drop-4*(nb-1);
+   const base=Math.min(A.r,B.r),i=lane("d"+Math.round(base),Math.min(y1,y2),Math.max(y1,y2)),lx=base+10+13*(i%5);
    const col=LCOL[li++%LCOL.length];
    const d=y2>y1?1:-1,cy=y1+d*Math.min(8,Math.abs(y2-y1)/2);
    links[k]={lx,cy,col};
-   out.push(`<path d="M${A.cx} ${A.b}V${y1}H${lx}V${y2}H${B.cx}V${B.t}" fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"/>`);
-   out.push(`<circle cx="${lx}" cy="${cy}" r="4.5" fill="${col}"/>`)});
+   const st=`fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"`;
+   /* two dotted paths, each starting at its own box edge so a dot always touches the box */
+   out.push(`<path d="M${A.cx} ${A.b+1.75}V${y1}H${lx}V${cy}" ${st}/>`);
+   out.push(`<path d="M${B.cx} ${B.t-1.75}V${y2}H${lx}V${cy}" ${st}/>`);
+   out.push(`<circle cx="${lx}" cy="${cy}" r="4.5" fill="${col}"/>`);
+   /* a heart near each spouse marks this as the couple line */
+   if(drop>=14)[[A.cx,A.b+drop/2],[B.cx,B.t-drop/2]].forEach(([x,y])=>{
+    out.push(`<circle cx="${x}" cy="${y}" r="6" fill="#fff"/>`);
+    out.push(`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="12" fill="${col}">♥</text>`)})});
   /* B) children lines */
   w.querySelectorAll(".hgrp").forEach(g=>{
    const from=g.dataset.from,other=g.dataset.other,sc=card(from);if(!sc)return;
@@ -382,7 +390,7 @@ function horizHtml(T,pool){
  while(q.length){const x=q.shift(),dx=depth.get(x);if(dx>=depthN)continue;
   feeds(x).forEach(i=>childrenOf(i).forEach(c=>{if(!depth.has(c.id)){depth.set(c.id,dx+1);home.set(c.id,x);q.push(c.id)}}))}
  /* 2. build the placement tree */
- const placed=new Set(),pairs=new Set();
+ let placed,pairs;
  const pk=(a,b)=>a<b?a+"-"+b:b+"-"+a;
  const grpKey=(p,ids,c)=>{
   const pars=[c.father_id,c.mother_id].filter(Boolean);
@@ -406,24 +414,45 @@ function horizHtml(T,pool){
    return{k,kids:g.sort(cmp).map(build)}});
   const hidden=[...new Set(feeds(p.id).concat(sps.map(s=>s.id)).flatMap(i=>childrenOf(i).filter(c=>!depth.has(c.id)).map(c=>c.id)))].length;
   return{p,sps,groups,hidden}}
- const tree=build(root);
+ const make=()=>{placed=new Set();pairs=new Set();return build(root)};
+ /* 2b. kids of spouses who are shown in different places are placed beside the UPPER spouse,
+    so the children's line stays short (repeat a couple of times until stable) */
+ const rehome=t=>{
+  const ypos=new Map();let leaf=0;
+  const walk=n=>{const ks=n.groups.flatMap(g=>g.kids);let y;
+   if(!ks.length)y=leaf++;else{const ys=ks.map(walk);y=(ys[0]+ys[ys.length-1])/2}
+   ypos.set(n.p.id,y);n.sps.forEach(s=>ypos.set(s.id,y));return y};
+  walk(t);
+  const owner=id=>depth.has(id)?id:spouseIds(id).find(s=>depth.has(s));
+  let ch=false;
+  home.forEach((h0,cid)=>{
+   const c=P(cid);if(!c)return;
+   const ps=[c.father_id,c.mother_id].filter(i=>i&&ypos.has(i));
+   if(ps.length<2)return;
+   const [u,v]=ps;if(Math.abs(ypos.get(u)-ypos.get(v))<0.01)return;
+   const up=ypos.get(u)<ypos.get(v)?u:v,ow=owner(up);
+   if(ow!=null&&ow!==h0&&ow!==cid&&ypos.has(ow)){home.set(cid,ow);ch=true}});
+  return ch};
+ let tree;
+ for(let it=0;it<3;it++){tree=make();if(!rehome(tree))break}
+ tree=make();
  /* 3. draw */
- const hc=p=>`<div class="hc" data-c="${p.id}">${card(p)}</div>`;
- function render(n){
-  const stack=`<div class="hcp">${hc(n.p)}${n.sps.map(s=>`<span class="heart" data-h="${s.id}">♥</span>${hc(s)}`).join("")}${n.hidden?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${n.hidden} ${n.hidden>1?"children":"child"} ▸</a>`:""}</div>`;
+ const hc=(p,num)=>`<div class="hc" data-c="${p.id}">${card(p,num?undefined:{nn:1})}</div>`;
+ function render(n,num){
+  const stack=`<div class="hcp">${hc(n.p,num)}${n.sps.map(s=>`<span class="heart" data-h="${s.id}">♥</span>${hc(s,false)}`).join("")}${n.hidden?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${n.hidden} ${n.hidden>1?"children":"child"} ▸</a>`:""}</div>`;
   if(!n.groups.length)return`<div class="hn">${stack}</div>`;
   const multi=n.groups.length>1;
   return`<div class="hn">${stack}<div class="hk">${n.groups.map((g,gi)=>{
    const t=g.k[0],id=+g.k.slice(1),o=P(id);
    const from=t==="c"?id:n.p.id,other=t==="l"?id:"";
    const lab=t==="s"?"other / unlisted":"with "+esc(dispName(o));
-   return`<div class="hgrp" data-from="${from}" data-other="${other}" data-gi="${gi}" data-multi="${multi?1:0}" data-heart="${t==="c"?1:0}">${multi?`<div class="hlab">${lab}</div>`:""}${g.kids.map(k=>`<div class="hkid">${render(k)}</div>`).join("")}</div>`}).join("")}</div></div>`}
+   return`<div class="hgrp" data-from="${from}" data-other="${other}" data-gi="${gi}" data-multi="${multi?1:0}" data-heart="${t==="c"?1:0}">${multi?`<div class="hlab">${lab}</div>`:""}${g.kids.map(k=>`<div class="hkid">${render(k,true)}</div>`).join("")}</div>`}).join("")}</div></div>`}
  const cand=people.filter(hasKids).sort(byName);
  if(!cand.includes(root))cand.unshift(root);
  return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(+this.value)">${cand.map(p=>`<option value="${p.id}" ${p.id===root.id?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select>
  <select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
  <div class="mut">Scroll sideways · tap a name for the full record · tap "children ▸" to start from there</div>
- <div class="hwrap" data-pairs="${[...pairs].join(",")}">${render(tree)}</div>`}
+ <div class="hwrap" data-pairs="${[...pairs].join(",")}">${render(tree,false)}</div>`}
 
 /* ---------- Members + record ---------- */
 let q="",mf="all";
