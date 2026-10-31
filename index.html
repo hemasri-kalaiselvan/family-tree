@@ -109,7 +109,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hcp .heart{text-align:center;line-height:.9;font-size:.8rem;position:relative;z-index:1}
 .hmore{font-size:.72rem;color:var(--pri);text-align:center;padding:2px 0;font-weight:600}
 .hwrap{position:relative}
-.hk{display:flex;flex-direction:column;gap:26px;margin-left:104px}
+.hk{display:flex;flex-direction:column;gap:26px;margin-left:132px}
 .hc{position:relative;z-index:1}
 .hgrp{display:flex;flex-direction:column;gap:20px}
 .hlab{font-size:.7rem;font-weight:600;color:var(--mut)}
@@ -324,12 +324,12 @@ const LCOL=["#e6194b","#0077b6","#2e9e47","#7b2cbf","#e08a00","#00a6a6","#6d4c41
 let hRO=null;
 
 /* grid router: orthogonal path from S to E that avoids boxes and prefers not to share a lane with an existing line */
-function hRoute(S,E,obst,segs,W,H){
- const g=6;
+function hRoute(S,E,obst,segs,W,H,zones){
+ const g=6;                                   /* every line sits on the same 6px lattice, so two lines can never be 3px apart */
  for(const m of [[170,120],[600,400]]){
   const xmin=Math.max(0,Math.min(S[0],E[0])-m[0]),xmax=Math.min(W+80,Math.max(S[0],E[0])+m[0]);
   const ymin=Math.max(0,Math.min(S[1],E[1])-m[1]),ymax=Math.min(H+40,Math.max(S[1],E[1])+m[1]);
-  const ox=S[0]-g*Math.floor((S[0]-xmin)/g),oy=S[1]-g*Math.floor((S[1]-ymin)/g);
+  const ox=g*Math.floor(xmin/g),oy=g*Math.floor(ymin/g);
   const cw=Math.ceil((xmax-ox)/g)+1,ch=Math.ceil((ymax-oy)/g)+1,N=cw*ch;
   if(N>1500000)continue;
   const blk=new Uint8Array(N),hO=new Uint8Array(N),vO=new Uint8Array(N);
@@ -338,19 +338,27 @@ function hRoute(S,E,obst,segs,W,H){
    if(o.r+4<ox||o.l-4>xmax||o.b+4<oy||o.t-4>ymax)continue;
    const a=Math.max(0,cx(o.l-4)),b=Math.min(cw-1,cx(o.r+4)),c=Math.max(0,cy(o.t-4)),d=Math.min(ch-1,cy(o.b+4));
    for(let y=c;y<=d;y++)for(let x=a;x<=b;x++)blk[y*cw+x]=1}
-  for(const[x1,y1,x2,y2]of segs){
-   /* 1 = a line is here, 2 = a line is right next to here (keep a clear gap) */
-   if(y1===y2){const a=Math.max(0,cx(Math.min(x1,x2))),b=Math.min(cw-1,cx(Math.max(x1,x2))),y=cy(y1);if(y<0||y>=ch)continue;
-    for(let x=a;x<=b;x++){hO[y*cw+x]=1;for(const dy of[-2,-1,1,2]){const yy=y+dy;if(yy>=0&&yy<ch&&!hO[yy*cw+x])hO[yy*cw+x]=2}}}
-   else{const a=Math.max(0,cy(Math.min(y1,y2))),b=Math.min(ch-1,cy(Math.max(y1,y2))),x=cx(x1);if(x<0||x>=cw)continue;
-    for(let y=a;y<=b;y++){vO[y*cw+x]=1;for(const dx of[-2,-1,1,2]){const xx=x+dx;if(xx>=0&&xx<cw&&!vO[y*cw+xx])vO[y*cw+xx]=2}}}}
+  /* occupancy: 1 = a line is on this cell, 2 = one cell away, 3 = two cells away (for lines running the same way) */
+  const mark=(arr,i,v)=>{if(!arr[i]||arr[i]>v)arr[i]=v};
+  for(const sg of segs){
+   const x1=sg[0],y1=sg[1],x2=sg[2],y2=sg[3];
+   if(y1===y2){const a=Math.max(0,cx(Math.min(x1,x2))),b=Math.min(cw-1,cx(Math.max(x1,x2))),y=cy(y1);
+    for(let x=a;x<=b;x++)for(let dy=-2;dy<=2;dy++){const yy=y+dy;if(yy>=0&&yy<ch)mark(hO,yy*cw+x,Math.abs(dy)+1)}}
+   else if(x1===x2){const a=Math.max(0,cy(Math.min(y1,y2))),b=Math.min(ch-1,cy(Math.max(y1,y2))),x=cx(x1);
+    for(let y=a;y<=b;y++)for(let dx=-2;dx<=2;dx++){const xx=x+dx;if(xx>=0&&xx<cw)mark(vO,y*cw+xx,Math.abs(dx)+1)}}}
+  /* "bus zones": the strip in front of each group of children is kept free of vertical dotted runs */
+  const zn=new Uint8Array(N);
+  for(const z of zones||[]){
+   if(z[1]<ox||z[0]>xmax||z[3]<oy||z[2]>ymax)continue;
+   const a=Math.max(0,cx(z[0])),b=Math.min(cw-1,cx(z[1])),c=Math.max(0,cy(z[2])),d=Math.min(ch-1,cy(z[3]));
+   for(let y=c;y<=d;y++)for(let x=a;x<=b;x++)zn[y*cw+x]=1}
   const sx=cx(S[0]),sy=cy(S[1]),ex=cx(E[0]),ey=cy(E[1]);
   if(sx<0||sy<0||sx>=cw||sy>=ch||ex<0||ey<0||ex>=cw||ey>=ch)continue;
   for(const[px,py]of[[sx,sy],[ex,ey]])for(let y=py-1;y<=py+1;y++)for(let x=px-1;x<=px+1;x++)if(x>=0&&y>=0&&x<cw&&y<ch)blk[y*cw+x]=0;
   const dist=new Float32Array(N*4).fill(1e9),prev=new Int32Array(N*4).fill(-1);
   const hp=[],push=(f,s)=>{hp.push([f,s]);let i=hp.length-1;while(i>0){const p=(i-1)>>1;if(hp[p][0]<=hp[i][0])break;[hp[p],hp[i]]=[hp[i],hp[p]];i=p}};
   const pop=()=>{const t=hp[0],l=hp.pop();if(hp.length){hp[0]=l;let i=0;for(;;){let a=2*i+1,b=a+1,m=i;if(a<hp.length&&hp[a][0]<hp[m][0])m=a;if(b<hp.length&&hp[b][0]<hp[m][0])m=b;if(m===i)break;[hp[m],hp[i]]=[hp[i],hp[m]];i=m}}return t};
-  const DX=[1,0,-1,0],DY=[0,1,0,-1];
+  const DX=[1,0,-1,0],DY=[0,1,0,-1],PEN=[0,200,30,6];
   const s0=(sy*cw+sx)*4;dist[s0]=0;push(Math.abs(ex-sx)+Math.abs(ey-sy),s0);
   let goal=-1,steps=0;
   while(hp.length&&steps++<900000){
@@ -360,9 +368,8 @@ function hRoute(S,E,obst,segs,W,H){
     if(((nd+2)&3)===d)continue;
     const nx=x+DX[nd],ny=y+DY[nd];if(nx<0||ny<0||nx>=cw||ny>=ch)continue;
     const nc=ny*cw+nx;if(blk[nc])continue;
-    let cost=1+(nd!==d?5:0);
-    if(nd&1){if(vO[nc]===1)cost+=40;else if(vO[nc]===2)cost+=14;else if(hO[nc]===1)cost+=3}
-    else{if(hO[nc]===1)cost+=40;else if(hO[nc]===2)cost+=14;else if(vO[nc]===1)cost+=3}
+    let cost=1+(nd!==d?12+((hO[c]===1||vO[c]===1)?60:0):0);
+    if(nd&1){cost+=PEN[vO[nc]]+(zn[nc]?25:0);if(hO[nc]===1)cost+=3}else{cost+=PEN[hO[nc]];if(vO[nc]===1)cost+=3}
     const ns=nc*4+nd,nv=gd+cost;
     if(nv<dist[ns]){dist[ns]=nv;prev[ns]=s;push(nv+Math.abs(ex-nx)+Math.abs(ey-ny),ns)}}}
   if(goal<0)continue;
@@ -412,7 +419,8 @@ function hLines(){
    const [a,b]=k.split("-"),A=C.get(a),B=C.get(b),ca=w.querySelector(`.hc[data-c="${a}"] .pc`),cb=w.querySelector(`.hc[data-c="${b}"] .pc`);
    if(!A||!B||ca.closest(".hcp")===cb.closest(".hcp"))return;
    const idx=Object.keys(links).length;   /* every couple line leaves its box at its own distance, so it never starts on another line */
-   const port=(id,r)=>{const n=portN[id]=(portN[id]||0)+1,y=Math.max(r.t+8,r.t+(r.b-r.t)*.8-6*(n-1));return{x0:r.r,y,jx:r.r+9+9*(idx%5)}};
+   const port=(id,r)=>{const n=portN[id]=(portN[id]||0)+1,y0=r.t+(r.b-r.t)*.8-12*(n-1),
+     y=(()=>{let v=Math.round(y0/6)*6;while(v>r.b-4)v-=6;while(v<r.t+4)v+=6;return v})();return{x0:r.r,y,jx:6*Math.ceil((r.r+10)/6)+12*(idx%5)}};
    links[k]={ends:{[a]:port(a,A),[b]:port(b,B)},a,b,key:k,col:PAL[0],used:{},pts:null,ok:false,segs:[]}});
   /* B) children lines */
   const GI=[...w.querySelectorAll(".hgrp")].map((g,idx)=>{
@@ -422,7 +430,12 @@ function hLines(){
    return{g,idx,from,other,sc,ks,kx:Math.min(...ks.map(r=>r.l)),ys:ks.map(r=>r.cy),lk:other?links[key(from,other)]:null,
     col:g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc"}}).filter(Boolean);
   const kidLine=(o,sx,sy,col,sw)=>{
-   const lo=Math.min(sy,...o.ys),hi=Math.max(sy,...o.ys),i=lane("b"+Math.round(o.kx),lo,hi),bus=o.kx-9-7*(i%5),own="K"+o.idx;
+   const lo=Math.min(sy,...o.ys),hi=Math.max(sy,...o.ys),own="K"+o.idx;
+   let bus=o.kx-9,best=1e9;
+   for(let i=0;i<6;i++){
+    const bx=o.kx-9-7*i;let bad=0;
+    for(const t of segs)if(t[0]===t[2]&&Math.abs(t[0]-bx)<9){const ov=Math.min(Math.max(t[1],t[3]),hi+6)-Math.max(Math.min(t[1],t[3]),lo-6);if(ov>0)bad+=ov}
+    if(bad<best){best=bad;bus=bx;if(!bad)break}}
    let p=`M${sx} ${sy}H${bus}`;segs.push([sx,sy,bus,sy,own]);
    if(hi>lo){p+=`M${bus} ${lo}V${hi}`;segs.push([bus,lo,bus,hi,own])}
    o.ks.forEach((r,j)=>{p+=`M${bus} ${o.ys[j]}H${r.l}`;segs.push([bus,o.ys[j],r.l,o.ys[j],own])});
@@ -432,10 +445,16 @@ function hLines(){
    const ht=o.g.dataset.heart==="1"?w.querySelector(`.heart[data-h="${o.from}"]`):null;
    if(ht){const h=R(ht);kidLine(o,h.cx+7,h.cy,o.col,1.6)}  /* married side by side: start at the heart */
    else kidLine(o,o.sc.r,o.sc.cy,o.col,1.6)});
+  const zones=GI.map(o=>{const py=o.lk?o.lk.ends[o.from].y:o.sc.cy;return[o.kx-50,o.kx-2,Math.min(...o.ys,py)-130,Math.max(...o.ys,py)+130]});
   /* C) route the dotted lines around the boxes */
   Object.values(links).forEach(lk=>{
    const ea=lk.ends[lk.a],eb=lk.ends[lk.b];
-   let mid=hRoute([ea.jx,ea.y],[eb.jx,eb.y],obst,segs,W,H);lk.ok=!!mid;
+   [ea,eb].forEach(e=>{
+    const base=6*Math.ceil((e.x0+10)/6);
+    for(let c=0;c<6;c++){
+     const jx=base+12*c;
+     if(!segs.some(t=>(t[0]===t[2]&&Math.abs(t[0]-jx)<8&&Math.min(t[1],t[3])-8<=e.y&&Math.max(t[1],t[3])+8>=e.y)||(t[1]===t[3]&&Math.abs(t[1]-e.y)<5&&Math.max(t[0],t[2])>e.x0&&Math.min(t[0],t[2])<jx))){e.jx=jx;break}}});
+   let mid=hRoute([ea.jx,ea.y],[eb.jx,eb.y],obst,segs,W,H,zones);lk.ok=!!mid;
    if(!mid)mid=[[ea.jx,ea.y],[Math.max(ea.jx,eb.jx)+30,ea.y],[Math.max(ea.jx,eb.jx)+30,eb.y],[eb.jx,eb.y]];
    lk.pts=[[ea.x0,ea.y],...mid,[eb.x0,eb.y]];
    for(let i=1;i<lk.pts.length;i++){const p=lk.pts[i-1],q=lk.pts[i],sg=[p[0],p[1],q[0],q[1],"L"+lk.key];segs.push(sg);lk.segs.push(sg)}});
@@ -448,36 +467,42 @@ function hLines(){
    const near=new Set([...nb.get(l)].map(n=>n.colSet&&n.col)),all=new Set(LK.map(n=>n.colSet&&n.col));
    /* a colour nobody uses yet if there is one, otherwise one that no nearby line uses */
    l.col=PAL.find(c=>!all.has(c))||PAL.find(c=>!near.has(c))||PAL[i%PAL.length];l.colSet=1});
-  /* E) children lines of dotted couples: the big dot goes on the dotted line, close to the parent shown first,
-        on a spot where no other line touches */
+  /* E) one little heart near EACH spouse (on a clear stretch of the dotted line) */
+  const hearts=[];
+  const plen=pts=>{let t=0;for(let i=1;i<pts.length;i++)t+=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]);return t};
+  LK.forEach(lk=>{
+   lk.len=plen(lk.pts);lk.hd={};
+   [lk.a,lk.b].forEach((id,n)=>{
+    const pts=n?lk.pts.slice().reverse():lk.pts,cand=samples(pts,4,420).filter(p=>p.d>=22&&p.cd>=10);
+    let H1=null;
+    for(const need of[14,11,8,5]){
+     H1=cand.find(p=>clear(p.x,p.y,"L"+lk.key)>=need&&hearts.every(h=>Math.hypot(h[0]-p.x,h[1]-p.y)>=22));
+     if(H1)break}
+    if(!H1)H1=cand[0]||samples(pts,4,80)[4]||{x:pts[0][0],y:pts[0][1],d:0};
+    hearts.push([H1.x,H1.y,lk.col]);lk.hd[id]=H1.d})});
+  /* F) children lines of dotted couples: the big dot sits on the dotted line BETWEEN the two hearts, next to the heart of
+        the parent shown first, on a spot where no other line touches */
   const dots=[];
   GI.filter(o=>o.lk).forEach(o=>{
-   const lk=o.lk,pts=o.from===lk.a?lk.pts:lk.pts.slice().reverse(),ex=lk.ends[o.from];
-   const bus0=o.kx-9,cand=samples(pts,4,900).filter(p=>p.vert&&p.cd>=12&&p.d>=14);
+   const lk=o.lk,fwd=o.from===lk.a,pts=fwd?lk.pts:lk.pts.slice().reverse(),ex=lk.ends[o.from];
+   const other=fwd?lk.b:lk.a,lo=lk.hd[o.from]+20,hi=lk.len-lk.hd[other]-20;
+   const bus0=o.kx-9,all=samples(pts,4,lk.len+10).filter(p=>p.vert&&p.cd>=10&&p.d>=lo&&p.d<=hi);
    const rayOk=p=>{const x1=Math.min(p.x,bus0),x2=Math.max(p.x,bus0);
     if(obst.some(r=>r.t-3<p.y&&r.b+3>p.y&&r.r+3>x1&&r.l-3<x2))return false;
+    if(hearts.some(h=>Math.abs(h[1]-p.y)<12&&h[0]>x1-8&&h[0]<x2+8))return false;
     return !segs.some(s=>s[4]!=="L"+lk.key&&s[1]===s[3]&&Math.abs(s[1]-p.y)<6&&Math.max(s[0],s[2])>x1&&Math.min(s[0],s[2])<x2)};
    let J=null;
    for(const need of[17,13,9,5]){
-    J=cand.find(p=>rayOk(p)&&clear(p.x,p.y,"L"+lk.key)>=need&&dots.every(d=>Math.hypot(d[0]-p.x,d[1]-p.y)>=18));
+    J=all.find(p=>rayOk(p)&&clear(p.x,p.y,"L"+lk.key)>=need&&dots.every(d=>Math.hypot(d[0]-p.x,d[1]-p.y)>=18));
     if(J)break}
+   if(!J)J=all.find(p=>rayOk(p))||samples(pts,4,lk.len+10).find(p=>p.d>=lo)||null;
    const jx=J?J.x:ex.jx,jy=J?J.y:ex.y;
    dots.push([jx,jy]);lk.used[o.from]=[jx,jy];
    kidLine(o,jx,jy,lk.col,2.2)});
-  /* F) draw the dotted lines with one little heart near EACH spouse */
-  const hearts=[];
   LK.forEach(lk=>{
    const tgt=lk.ok?out:top;
    tgt.push(`<path d="M${lk.pts.map(p=>p[0]+" "+p[1]).join("L")}" fill="none" stroke="${lk.col}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"/>`);
-   [lk.a,lk.b].forEach((id,n)=>{
-    const pts=n?lk.pts.slice().reverse():lk.pts,cand=samples(pts,4,400).filter(p=>p.d>=22&&p.cd>=10);
-    let H1=null;
-    for(const need of[14,11,8,5]){
-     H1=cand.find(p=>clear(p.x,p.y,"L"+lk.key)>=need&&dots.every(d=>Math.hypot(d[0]-p.x,d[1]-p.y)>=20)&&hearts.every(h=>Math.hypot(h[0]-p.x,h[1]-p.y)>=22));
-     if(H1)break}
-    if(!H1)H1=cand[0]||samples(pts,4,60)[3]||{x:pts[0][0],y:pts[0][1]};
-    hearts.push([H1.x,H1.y,lk.col])});
-   if(lk.used){Object.values(lk.used).forEach(([x,y])=>tgt.push(`<circle cx="${x}" cy="${y}" r="4.5" fill="${lk.col}"/>`))}});
+   Object.values(lk.used).forEach(([x,y])=>tgt.push(`<circle cx="${x}" cy="${y}" r="4.5" fill="${lk.col}"/>`))});
   hearts.forEach(([x,y,c])=>out.push(`<circle cx="${x}" cy="${y}" r="7" fill="#fff"/><text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="13" fill="${c}">♥</text>`));
   const svg=cl=>`<svg class="hsv ${cl}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
   w.insertAdjacentHTML("afterbegin",svg("")+out.join("")+"</svg>");
