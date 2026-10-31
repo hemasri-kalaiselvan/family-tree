@@ -131,8 +131,15 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt .pc img{width:28px;height:28px}
 .vt .pc .n{font-size:.75rem;line-height:1.2}
 .vt .pc .p{font-size:.64rem}
-.vt .pc.vroot{width:auto;padding:6px 16px;background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700;font-size:.8rem;cursor:default}
 .vt .pc.hb{padding-left:21px;width:128px}
+/* left-to-right layout */
+.vt.lr .vtr{flex-direction:column;align-items:flex-start;gap:30px}
+.vt.lr ul{flex-direction:column;align-items:flex-start;justify-content:center}
+.vt.lr li{display:flex;align-items:center;padding:6px 0 6px 44px;text-align:left}
+.vt.lr .vtr>ul>li{padding-left:0}
+.vt.lr .vks{flex-direction:column;align-items:flex-start;gap:14px}
+.vt.lr .vu{flex-direction:column;align-items:center;gap:1px}
+.vt.lr .vw{display:block;line-height:.9}
 .vt .pc .bn{left:2px;top:2px;transform:none;min-width:14px;height:14px;line-height:14px;padding:0 2px;font-size:.58rem}
 .vt .vref{border-style:dashed;font-style:italic;opacity:.85;font-size:.72rem;display:block;cursor:pointer;color:var(--ink)}
 .vt .vref b{color:#e8710a}
@@ -289,10 +296,10 @@ const hasPar=p=>p.father_id||p.mother_id;
 function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
- const L=[["tree","Outline"],["hour","Hourglass"],["horiz","Horizontal"],["vert","Top-down"]];
+ const L=[["tree","Outline"],["hour","Hourglass"],["horiz","Horizontal"],["vert","Top-down"],["lrt","Left-right"]];
  app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
- const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):horizHtml(T,pool);if(lay==="horiz")hLines();if(lay==="vert"){vMark();vAnch();document.fonts&&document.fonts.ready.then(()=>{if($(".vt"))vAnch()})}};
+ const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):lay==="lrt"?vertHtml(T,pool,true):horizHtml(T,pool);if(lay==="horiz")hLines();if(lay==="vert"||lay==="lrt"){const va=lay==="lrt"?vAnchH:vAnch;vMark();va();document.fonts&&document.fonts.ready.then(()=>{if($(".vt"))va()})}};
  window.drawLay=draw;
  document.querySelectorAll(".chip[data-l]").forEach(c=>c.onclick=()=>{lay=c.dataset.l;document.querySelectorAll(".chip[data-l]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  draw()}
@@ -701,6 +708,37 @@ function vAnch(){
    kids.forEach((r,i)=>{d+=`M${X(xs[i])} ${Y(by)}V${Y(r.top)}`});
    paths.push(`<path d="${d}" stroke="${col}"/>`)})});
  root.insertAdjacentHTML("afterbegin",`<svg class="vl" width="${root.scrollWidth}" height="${root.scrollHeight}" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${paths.join("")}</svg>`)}
+/* left-to-right version of vAnch: same rules, lines run sideways. Parents on the left, children stacked on the right. */
+function vAnchH(){
+ const root=document.querySelector('.vt .vtr');if(!root)return;
+ const old=root.querySelector(':scope>svg.vl');if(old)old.remove();
+ const R=root.getBoundingClientRect(),X=v=>(v-R.left).toFixed(1),Y=v=>(v-R.top).toFixed(1);
+ const paths=[];
+ root.querySelectorAll('li').forEach(li=>{
+  const head=li.querySelector(':scope>.vu'),vks=li.querySelector(':scope>.vks');
+  if(!head||!vks)return;
+  const hr=head.getBoundingClientRect(),hearts=head.querySelectorAll('.vw');
+  const groups=[...vks.children].filter(g=>g.classList.contains('vg'));
+  const multi=groups.length>1;
+  groups.forEach((g,gi)=>{
+   const kids=[...g.firstElementChild.children].map(k=>k.querySelector(':scope>.vu>.vc')||k.querySelector(':scope>.vc')).filter(Boolean).map(c=>c.getBoundingClientRect());
+   if(!kids.length)return;
+   const from=g.dataset.from;let px,py;
+   if(hearts.length===1){const r=hearts[0].getBoundingClientRect();py=r.top+r.height/2;px=hr.right}
+   else{
+    const c=(from==="s"?head.querySelector(':scope>.vc'):head.querySelector('.vc[data-vid="'+from+'"],.vc[data-sid="'+from+'"]'))||head.querySelector(':scope>.vc');
+    const r=c.getBoundingClientRect();py=r.top+r.height/2;px=r.right}
+   const ys=kids.map(r=>r.top+r.height/2),kx=Math.min(...kids.map(r=>r.left));
+   let near=null;ys.forEach(y=>{if(Math.abs(y-py)<=8&&(near===null||Math.abs(y-py)<Math.abs(near-py)))near=y});
+   if(near!==null)py=near;
+   const bx=kx-30+(multi?(gi%4)*6:0);
+   const col=multi?LCOL[gi%LCOL.length]:"#9fb0cc";
+   const lo=Math.min(py,...ys),hi=Math.max(py,...ys);
+   let d=`M${X(px)} ${Y(py)}H${X(bx)}`;
+   if(hi-lo>0.5)d+=`M${X(bx)} ${Y(lo)}V${Y(hi)}`;
+   kids.forEach((r,i)=>{d+=`M${X(bx)} ${Y(ys[i])}H${X(r.left)}`});
+   paths.push(`<path d="${d}" stroke="${col}"/>`)})});
+ root.insertAdjacentHTML("afterbegin",`<svg class="vl" width="${root.scrollWidth}" height="${root.scrollHeight}" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${paths.join("")}</svg>`)}
 function vFlash(e){if(!e)return;
  document.querySelectorAll('.vt .vc.vp').forEach(x=>x.classList.remove('vp'));
  e.classList.add('vp');e.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
@@ -730,7 +768,7 @@ function vClick(e){
  d.querySelectorAll("button").forEach(b=>b.onclick=()=>{vPopClose();vFlash(stubs[+b.dataset.i])})}
 document.addEventListener("click",vClick);
 document.addEventListener("scroll",vPopClose,true);
-function vertHtml(T,pool){
+function vertHtml(T,pool,lr){
  if(!pool.length)return'<div class="status">No people yet.</div>';
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
@@ -760,10 +798,8 @@ function vertHtml(T,pool){
    const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
     `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c,true)}</li>`;asChild.add(c.id);return unit(c,np,true)}).join("")}</ul></div>`);
    return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}</li>`}
-  let lis="",nr=0;
-  roots.forEach(r=>{if(!placed.has(r.id)){lis+=unit(r,[]);nr++}});
-  /* several separate branches: hang them all under one common top box so the whole tree is linked */
-  const body=!nr?"":nr>1?`<ul><li><div class="vu"><span class="vc"><span class="pc vroot">🌳 Family</span></span></div><div class="vks"><div class="vg" data-from="s"><ul>${lis}</ul></div></div></li></ul>`:`<ul>${lis}</ul>`;
+  let body="";
+  roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
   return{placed,asChild,body}}
  /* pass 1 finds who is reachable as somebody's child; then every woman whose husband is a child of his own parents
     gets her stub under her parents, and the couple (with her main box) is drawn under the husband's parents */
@@ -781,7 +817,7 @@ function vertHtml(T,pool){
    if(!hold.size){out=run(hold);break}}}
  const body=out.body,left=pool.filter(p=>!out.placed.has(p.id));
  return`<div class="mut">Scroll sideways and down · tap a name for the full record · orange boxes = same person shown twice: the main box (men under their parents, women beside their husband) and a dashed ⇄ stub · tap the stub to jump to the main · tap the main to choose person page or stub</div>
- <div class="vtw vt"><div class="vtr">${body||'<div class="status">No families linked yet.</div>'}</div></div>
+ <div class="vtw vt${lr?" lr":""}"><div class="vtr">${body||'<div class="status">No families linked yet.</div>'}</div></div>
  ${left.length?`<details class="sec"><summary><b>Not yet linked (${left.length})</b></summary><div class="grid" style="margin-top:8px">${left.map(cardNN).join("")}</div></details>`:""}`}
 
 /* ---------- Members + record ---------- */
