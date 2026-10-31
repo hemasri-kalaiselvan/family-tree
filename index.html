@@ -1130,7 +1130,7 @@ let selMode=false;const sel=new Set();
 function viewMembers(app){
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
- <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}${canEdit()?`<span id="selb" class="chip ${selMode?"on":""}">☑ Select</span>`:""}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
+ <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}${canEdit()?`<span id="selb" class="chip ${selMode?"on":""}">☑ Select</span><span id="kothb" class="chip">🕉 Kothram</span>`:""}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
  <div id="list"></div>
  <div id="bulk" class="bulk" hidden><b id="bc"></b><button id="ball" class="alt">All shown</button><button id="bnone" class="alt">Clear</button><button id="bgo">Set status…</button></div>`;
  let shown=[];
@@ -1147,6 +1147,7 @@ function viewMembers(app){
  document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  if(canEdit()){
   $("#selb").onclick=()=>{selMode=!selMode;if(!selMode)sel.clear();viewMembers($("#app"))};
+  $("#kothb").onclick=openKothram;
   $("#list").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("sc")){const id=+c.dataset.id;c.checked?sel.add(id):sel.delete(id);bar()}};
   $("#ball").onclick=()=>{shown.forEach(id=>sel.add(id));draw()};
   $("#bnone").onclick=()=>{sel.clear();draw()};
@@ -1194,6 +1195,72 @@ function fieldHtml([k,l,t,x],v){
  else if(t==="person")inp=`<select id="${id}"><option value=""></option>${[...people].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>`<option value="${p.id}" ${p.id===v?"selected":""}>${esc(p.name)} (#${p.id})</option>`).join("")}</select>`;
  else if(t==="photo")inp=`<input id="${id}" type="hidden" value="${esc(v)}"><input type="file" accept="image/*" onchange="upPhoto(this,'${id}')"><img id="${id}_pv" class="pv" src="${esc(v)}" ${v?"":"hidden"} alt="">`;
  return`<label for="${id}">${l}</label>${inp}`}
+/* ---------- bulk kothram ----------
+   Rule 1: a man's kothram passes to his wife and to all his descendants.
+   Rule 2: a woman (daughter, granddaughter, ...) takes her husband's kothram once married - and her own descendants follow the new one.
+   Only the root ancestors (people with no father on record and no husband) need a kothram typed in; everything else is derived. */
+function kothramCalc(seeds){
+ const memo=new Map(),busy=new Set();
+ const ms=[...marriages].sort((a,b)=>a.id-b.id);
+ const husb=p=>{if(p.gender!=="female")return null;
+  const hs=ms.filter(m=>(m.person1_id===p.id||m.person2_id===p.id)&&["married","widowed","separated"].includes(m.status))
+   .map(m=>P(m.person1_id===p.id?m.person2_id:m.person1_id)).filter(o=>o&&o.gender==="male");
+  return hs.length?hs[hs.length-1]:null};
+ const kt=p=>{
+  if(memo.has(p.id))return memo.get(p.id);
+  if(busy.has(p.id))return{v:null,r:p.id};
+  busy.add(p.id);
+  const h=husb(p),f=P(p.father_id);let o;
+  if(h)o=kt(h);else if(f)o=kt(f);
+  else o={v:((seeds[p.id]??p.kothram??"")+"").trim()||null,r:p.id};
+  busy.delete(p.id);memo.set(p.id,o);return o};
+ people.forEach(kt);
+ const cnt={};people.forEach(p=>{const r=memo.get(p.id).r;cnt[r]=(cnt[r]||0)+1});
+ return{memo,cnt}}
+function openKothram(){
+ const d=$("#dlg"),seeds={},off=new Set();
+ const base=kothramCalc({});
+ const roots=people.filter(p=>base.cnt[p.id]>1&&base.memo.get(p.id).r===p.id)
+  .sort((a,b)=>base.cnt[b.id]-base.cnt[a.id]||(a.name||"").localeCompare(b.name||""));
+ /* prefill each root: its own value, else the kothram already recorded on a man in its line (men always inherit, so it is reliable); flag if those disagree */
+ const hint={};
+ roots.forEach(r=>{
+  const vs={};people.forEach(p=>{if(p.gender==="male"&&p.kothram&&base.memo.get(p.id).r===r.id){(vs[p.kothram.trim()]=vs[p.kothram.trim()]||[]).push(p.id)}});
+  const ks=Object.keys(vs);
+  if(r.kothram)seeds[r.id]=r.kothram;
+  else if(ks.length)seeds[r.id]=ks.sort((a,b)=>vs[b].length-vs[a].length)[0];
+  if(!r.kothram&&ks.length)hint[r.id]="from #"+vs[seeds[r.id]][0];
+  if(ks.length>1)hint[r.id]=(hint[r.id]||"")+" ⚠ conflicting values in this line: "+ks.join(" / ")});
+ const noGender=people.filter(p=>p.gender!=="male"&&p.gender!=="female");
+ d.innerHTML=`<h2>Bulk update Kothram</h2><div id="msg" class="mut" style="color:var(--red)"></div>
+ <p class="mut">A man's kothram goes to his wife and all descendants. A daughter (or granddaughter, etc.) takes her husband's kothram when she marries. Enter the kothram of each root ancestor below - it flows down automatically.</p>
+ ${noGender.length?`<p class="mut" style="color:var(--red)">No gender set: ${noGender.map(p=>esc(p.name)+" (#"+p.id+")").join(", ")} - treated as male line (their marriage does not change kothram).</p>`:""}
+ <b>Root ancestors (${roots.length})</b>
+ <div style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0">
+ ${roots.map(p=>`<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><span style="flex:1;min-width:0;font-size:.9rem">${esc(p.name)} <span class="mut">#${p.id} · ${base.cnt[p.id]} people${hint[p.id]?` · ${esc(hint[p.id])}`:""}</span></span><input class="ks" data-r="${p.id}" value="${esc(seeds[p.id]||"")}" placeholder="kothram" style="width:42%"></div>`).join("")}</div>
+ <b id="ptitle"></b>
+ <div id="prev" style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0"></div>
+ <div class="row" style="justify-content:flex-end"><button class="alt" id="cx">Cancel</button><button id="sv">Apply</button></div>`;
+ let chg=[];
+ const draw=()=>{
+  const r=kothramCalc(seeds);
+  chg=people.filter(p=>{const v=r.memo.get(p.id).v;return v&&v!==(p.kothram||"")}).map(p=>({p,v:r.memo.get(p.id).v}));
+  const on=chg.filter(c=>!off.has(c.p.id));
+  $("#ptitle").textContent=`Preview: ${chg.length} change${chg.length===1?"":"s"} (${on.length} selected)`;
+  $("#prev").innerHTML=chg.length?chg.map(({p,v})=>`<label style="display:flex;gap:8px;align-items:center;margin:3px 0;font-size:.9rem"><input type="checkbox" class="kc" data-id="${p.id}" ${off.has(p.id)?"":"checked"}><span style="flex:1;min-width:0">${esc(p.name)} <span class="mut">#${p.id}</span></span><span class="mut">${esc(p.kothram||"—")} → <b>${esc(v)}</b></span></label>`).join(""):`<span class="mut">Nothing to change yet. Enter a kothram for the root ancestors above.</span>`;
+  $("#sv").disabled=!on.length;$("#sv").textContent=`Apply ${on.length}`};
+ d.querySelectorAll(".ks").forEach(i=>i.oninput=()=>{seeds[+i.dataset.r]=i.value;draw()});
+ $("#prev").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("kc")){const id=+c.dataset.id;c.checked?off.delete(id):off.add(id);draw()}};
+ $("#cx").onclick=()=>d.close();
+ $("#sv").onclick=async()=>{
+  const by={};chg.filter(c=>!off.has(c.p.id)).forEach(c=>(by[c.v]=by[c.v]||[]).push(c.p.id));
+  $("#sv").disabled=true;
+  for(const [v,ids] of Object.entries(by)){
+   const {error}=await sb.from("ft_people").update({kothram:v}).in("id",ids);
+   if(error){$("#msg").textContent=error.message;$("#sv").disabled=false;return}}
+  d.close();await load()};
+ draw();d.showModal()}
+
 function collect(F,errs){const o={};
  F.forEach(([k,l,t])=>{const e=document.getElementById("f_"+k);let v;
   if(t==="chk")v=e.checked;else{v=e.value.trim();if(v==="")v=null;
