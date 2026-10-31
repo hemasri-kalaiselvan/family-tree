@@ -81,6 +81,10 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .qc{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--mut);font-size:1.1rem;padding:8px 12px;line-height:1}
 .srow{display:flex;gap:8px;align-items:flex-start}.srow .mc{flex:1;min-width:0}
 .sc{width:24px;height:24px;margin-top:14px;flex:none}
+.kr{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center;margin:0;padding:7px 2px;border-bottom:1px solid var(--line);font-size:.92rem;color:var(--ink)}
+.kr input[type=checkbox]{width:20px;height:20px;padding:0;flex:none}
+.kr .kn{flex:1;min-width:0}.kr .kc2{flex-basis:100%;padding-left:28px;color:var(--mut);font-size:.82rem}
+.rr{padding:7px 2px;border-bottom:1px solid var(--line)}.rr .rn{font-size:.92rem;margin-bottom:3px}.rr .rn span{color:var(--mut);font-size:.8rem}
 .bulk{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;align-items:center;z-index:25;box-shadow:0 -2px 8px #0002}
 .bulk[hidden]{display:none}.bulk b{margin-right:auto;font-size:.95rem}
 body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
@@ -1119,24 +1123,33 @@ function rec(p,full){
  const sub=[p.profession,p.current_location].filter(Boolean).join(" · ");
  return`<div class="mc ${full?"full":""}"><div class="mh"><div>
   ${full?`<div class="nm" style="font-size:1.25rem">${esc(dispName(p))}</div>`:`<a class="nm" href="#/person/${id}">${esc(dispName(p))}</a>`}
-  <span class="sub">#${id} · ${TL[p.tree]||""}</span>
+  <span class="sub">#${id} · ${TL[p.tree]||""} · ${p.gender==="male"?"♂ Male":p.gender==="female"?"♀ Female":"⚠ Gender not set"}${p.kothram?" · 🕉 "+esc(p.kothram):""}</span>
   ${per?`<div class="mut">${esc(per)}</div>`:""}${sub?`<div class="mut">${esc(sub)}</div>`:""}</div>
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
   ${ln("Spouse",spH)}${kidsH}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
   ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a>`}</div>`}
 
-let selMode=false;const sel=new Set();
+let selMode=false;const sel=new Set();let gf="all",kf="all";
 function viewMembers(app){
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
  <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}${canEdit()?`<span id="selb" class="chip ${selMode?"on":""}">☑ Select</span><span id="kothb" class="chip">🕉 Kothram</span>`:""}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
+ <div class="chips" id="gchips">${[["all","All"],["male","♂ Male"],["female","♀ Female"],["none","⚠ Not set"]].map(([k,l])=>`<span class="chip ${gf===k?"on":""}" data-g="${k}" data-l="${l}">${l}</span>`).join("")}</div>
+ <select id="kf" aria-label="Filter by kothram" style="margin:2px 0 8px"></select>
  <div id="list"></div>
  <div id="bulk" class="bulk" hidden><b id="bc"></b><button id="ball" class="alt">All shown</button><button id="bnone" class="alt">Clear</button><button id="bgo">Set status…</button></div>`;
  let shown=[];
  const bar=()=>{$("#bulk").hidden=!selMode;document.body.classList.toggle("bulkon",selMode);$("#bc").textContent=sel.size+" selected"};
  const draw=()=>{$("#qc").hidden=!q;const t=q.trim().toLowerCase();
-  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
+  const gm=p=>p.gender==="male"?"male":p.gender==="female"?"female":"none";
+  const tp=people.filter(p=>mf==="all"||p.tree===mf);
+  document.querySelectorAll(".chip[data-g]").forEach(c=>{const k=c.dataset.g;c.textContent=c.dataset.l+" ("+(k==="all"?tp.length:tp.filter(p=>gm(p)===k).length)+")";c.classList.toggle("on",gf===k)});
+  const kc={};tp.forEach(p=>{const k=(p.kothram||"").trim()||"__none";kc[k]=(kc[k]||0)+1});
+  if(kf!=="all"&&!kc[kf])kf="all";
+  $("#kf").innerHTML=`<option value="all">All kothrams (${tp.length})</option>`+Object.keys(kc).filter(k=>k!=="__none").sort((a,b)=>kc[b]-kc[a]||a.localeCompare(b)).map(k=>`<option value="${esc(k)}" ${kf===k?"selected":""}>${esc(k)} (${kc[k]})</option>`).join("")+(kc.__none?`<option value="__none" ${kf==="__none"?"selected":""}>⚠ Not set (${kc.__none})</option>`:"");
+  const km=p=>kf==="all"||(kf==="__none"?!(p.kothram||"").trim():(p.kothram||"").trim()===kf);
+  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(gf==="all"||gm(p)===gf)&&km(p)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   shown=r.map(p=>p.id);
   $("#cnt").textContent=`${r.length} of ${people.length}`;
@@ -1144,6 +1157,8 @@ function viewMembers(app){
   bar()};
  $("#q").oninput=e=>{q=e.target.value;draw()};
  $("#qc").onclick=()=>{q="";$("#q").value="";$("#q").focus();draw()};
+ $("#kf").onchange=e=>{kf=e.target.value;draw()};
+ document.querySelectorAll(".chip[data-g]").forEach(c=>c.onclick=()=>{gf=c.dataset.g;draw()});
  document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  if(canEdit()){
   $("#selb").onclick=()=>{selMode=!selMode;if(!selMode)sel.clear();viewMembers($("#app"))};
@@ -1237,7 +1252,7 @@ function openKothram(){
  ${noGender.length?`<p class="mut" style="color:var(--red)">No gender set: ${noGender.map(p=>esc(p.name)+" (#"+p.id+")").join(", ")} - treated as male line (their marriage does not change kothram).</p>`:""}
  <b>Root ancestors (${roots.length})</b>
  <div style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0">
- ${roots.map(p=>`<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><span style="flex:1;min-width:0;font-size:.9rem">${esc(p.name)} <span class="mut">#${p.id} · ${base.cnt[p.id]} people${hint[p.id]?` · ${esc(hint[p.id])}`:""}</span></span><input class="ks" data-r="${p.id}" value="${esc(seeds[p.id]||"")}" placeholder="kothram" style="width:42%"></div>`).join("")}</div>
+ ${roots.map(p=>`<div class="rr"><div class="rn">${esc(p.name)} <span>#${p.id} · ${base.cnt[p.id]} people${hint[p.id]?` · ${esc(hint[p.id])}`:""}</span></div><input class="ks" data-r="${p.id}" value="${esc(seeds[p.id]||"")}" placeholder="kothram"></div>`).join("")}</div>
  <b id="ptitle"></b>
  <div id="prev" style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0"></div>
  <div class="row" style="justify-content:flex-end"><button class="alt" id="cx">Cancel</button><button id="sv">Apply</button></div>`;
@@ -1247,7 +1262,7 @@ function openKothram(){
   chg=people.filter(p=>{const v=r.memo.get(p.id).v;return v&&v!==(p.kothram||"")}).map(p=>({p,v:r.memo.get(p.id).v}));
   const on=chg.filter(c=>!off.has(c.p.id));
   $("#ptitle").textContent=`Preview: ${chg.length} change${chg.length===1?"":"s"} (${on.length} selected)`;
-  $("#prev").innerHTML=chg.length?chg.map(({p,v})=>`<label style="display:flex;gap:8px;align-items:center;margin:3px 0;font-size:.9rem"><input type="checkbox" class="kc" data-id="${p.id}" ${off.has(p.id)?"":"checked"}><span style="flex:1;min-width:0">${esc(p.name)} <span class="mut">#${p.id}</span></span><span class="mut">${esc(p.kothram||"—")} → <b>${esc(v)}</b></span></label>`).join(""):`<span class="mut">Nothing to change yet. Enter a kothram for the root ancestors above.</span>`;
+  $("#prev").innerHTML=chg.length?chg.map(({p,v})=>`<label class="kr"><input type="checkbox" class="kc" data-id="${p.id}" ${off.has(p.id)?"":"checked"}><span class="kn">${esc(p.name)} <span class="mut">#${p.id}</span></span><span class="kc2">${esc(p.kothram||"—")} → <b style="color:var(--ink)">${esc(v)}</b></span></label>`).join(""):`<span class="mut">Nothing to change yet. Enter a kothram for the root ancestors above.</span>`;
   $("#sv").disabled=!on.length;$("#sv").textContent=`Apply ${on.length}`};
  d.querySelectorAll(".ks").forEach(i=>i.oninput=()=>{seeds[+i.dataset.r]=i.value;draw()});
  $("#prev").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("kc")){const id=+c.dataset.id;c.checked?off.delete(id):off.add(id);draw()}};
