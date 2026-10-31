@@ -279,10 +279,10 @@ async function load(){
  const [a,b]=await Promise.all([sb.rpc("ft_data",{tbl:"ft_people"}),sb.rpc("ft_data",{tbl:"ft_marriages"})]);
  if(a.error||b.error){loadErr=(a.error||b.error).message;people=[];marriages=[]}
  else{people=a.data;marriages=b.data}
- const zk=window.curZ?{s:window.curZ.s,t:window.curZ.touched,w:sbox().map(el=>[el.scrollLeft,el.scrollTop]),y:scrollY}:null;
+ const zk=window.curZ?{s:window.curZ.s,t:window.curZ.touched,f:window.curZ.isFS(),w:sbox().map(el=>[el.scrollLeft,el.scrollTop]),y:scrollY}:null;
  renderNav();route();
  /* a reload (e.g. after sign-in or an edit) must not throw away the zoom / scroll position of the tree being viewed */
- if(zk&&window.curZ){if(zk.t)window.curZ.set(zk.s);sbox().forEach((el,i)=>{if(zk.w[i]){el.scrollLeft=zk.w[i][0];el.scrollTop=zk.w[i][1]}});window.scrollTo(0,zk.y)}}
+ if(zk&&window.curZ){if(zk.t)window.curZ.set(zk.s);if(zk.f)window.curZ.fs(true);sbox().forEach((el,i)=>{if(zk.w[i]){el.scrollLeft=zk.w[i][0];el.scrollTop=zk.w[i][1]}});window.scrollTo(0,zk.y)}}
 /* the sign-in library fires events again whenever the browser tab regains focus; only reload when the signed-in user really changed */
 let authUid;
 sb.auth.onAuthStateChange((ev,ss)=>{const u=ss&&ss.user?ss.user.id:null;if(authUid!==undefined&&u===authUid&&ev!=="USER_UPDATED")return;authUid=u;setTimeout(load,0)});
@@ -299,16 +299,16 @@ function renderNav(){
 window.addEventListener("scroll",()=>{$("#top").style.display=scrollY>300?"block":"none"});
 /* remember where you were on the tree / members list, so Back from a person page returns to the same spot */
 history.scrollRestoration="manual";
-const SV={};
+let SV={};try{SV=JSON.parse(sessionStorage.getItem("ftSV")||"{}")}catch(x){}
 const hk=u=>{try{return new URL(u).hash||"#/"}catch(e){return"#/"}};
 const canRest=h=>/^#\/(vetri|raj|members)?$/.test(h);
 const sbox=()=>[...document.querySelectorAll(".vtw,.hwrap,.zw")];
 window.addEventListener("hashchange",e=>{
  const from=hk(e.oldURL),to=hk(e.newURL);
- if(canRest(from))SV[from]={y:scrollY,zs:window.curZ?window.curZ.s:null,w:sbox().map(el=>[el.scrollLeft,el.scrollTop])};
+ if(canRest(from))SV[from]={y:scrollY,zs:window.curZ?window.curZ.s:null,fs:window.curZ?window.curZ.isFS():false,w:sbox().map(el=>[el.scrollLeft,el.scrollTop])};try{sessionStorage.setItem("ftSV",JSON.stringify(SV))}catch(x){}
  renderNav();route();
  const s=SV[to];
- if(s&&canRest(to)){if(s.zs&&window.curZ)window.curZ.set(s.zs);sbox().forEach((el,i)=>{if(s.w[i]){el.scrollLeft=s.w[i][0];el.scrollTop=s.w[i][1]}});window.scrollTo(0,s.y)}
+ if(s&&canRest(to)){if(s.zs&&window.curZ)window.curZ.set(s.zs);if(s.fs&&window.curZ)window.curZ.fs(true);sbox().forEach((el,i)=>{if(s.w[i]){el.scrollLeft=s.w[i][0];el.scrollTop=s.w[i][1]}});window.scrollTo(0,s.y)}
  else window.scrollTo(0,0)});
 $("#who").onclick=()=>{location.hash="#/login"};
 $("#more").onclick=e=>{e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
@@ -516,6 +516,7 @@ function zoomWrap(sel){
   const r=zw.getBoundingClientRect(),t=e.touches;
   Z.touched=true;apply(s0*dist(t)/d0,(t[0].clientX+t[1].clientX)/2-r.left,(t[0].clientY+t[1].clientY)/2-r.top)},{passive:false});
  zw.addEventListener('touchend',e=>{if(e.touches.length<2)d0=0});
+ Z.isFS=()=>fw.classList.contains('zfs');Z.fs=on=>setFS(on);
  window.curZ=Z;
  Z.def()}
 window.addEventListener('resize',()=>{window.zResize&&window.zResize()});
@@ -1083,14 +1084,21 @@ function fv(k,t,v){
  if(SOC.includes(k)){const u=/^https?:/i.test(v)?v:(v[0]==="@"&&HB[k]?HB[k]+v.slice(1):"https://"+v);return`<a class="lk" target="_blank" rel="noopener" href="${esc(u)}">${esc(v)}</a>`}
  if(k==="home_address")return esc(v).replace(/\n/g,"<br>");
  return esc(v)}
+function lifeRow(p){
+ let v=null;
+ if(p.life_status&&p.life_status!=="unknown")v=p.life_status[0].toUpperCase()+p.life_status.slice(1);
+ else if(p.is_late===true||p.dod)v="Deceased";
+ else if(p.is_late===false)v="Alive";
+ return v?`<b>Alive / Deceased</b><span>${v}</span>`:""}
 function moreRows(p){
  const SK=new Set(["name","photo_url","father_id","mother_id","tree","is_placeholder"]);
  const has=(k,v)=>v!=null&&v!==""&&!(k==="life_status"&&v==="unknown");
  const dead=p.is_late||p.life_status==="deceased"||!!p.dod;
- const fl=PF.filter(([k])=>k in p&&!SK.has(k)&&(dead||!["dod","death_place","death_tamil_month","death_paksha","death_thithi"].includes(k)));
+ const lr=lifeRow(p);
+ const fl=PF.filter(([k])=>k in p&&!SK.has(k)&&!(k==="life_status"&&lr)&&(dead||!["dod","death_place","death_tamil_month","death_paksha","death_thithi"].includes(k)));
  const filled=fl.filter(([k])=>has(k,p[k])).map(([k,l,t])=>`<b>${l}</b><span>${fv(k,t,p[k])}</span>`);
  const blank=fl.filter(([k])=>!has(k,p[k])).map(([k,l])=>`<b class="bl">${l}</b><span class="bl">—</span>`);
- return filled.join("")+(blank.length?`<b style="grid-column:1/-1;margin-top:10px">Not filled yet</b>`+blank.join(""):"")}
+ return lr+filled.join("")+(blank.length?`<b style="grid-column:1/-1;margin-top:10px">Not filled yet</b>`+blank.join(""):"")}
 function rec(p,full){
  const per=period(p),id=p.id;
  const ln=(l,h)=>h?`<div class="ml"><b>${l}:</b> ${h}</div>`:"";
