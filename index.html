@@ -736,7 +736,7 @@ function vertHtml(T,pool){
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
  const isF=p=>p.gender==="female"||(!p.gender&&(people.some(c=>c.mother_id===p.id)||spouseIds(p.id).some(i=>P(i)&&P(i).gender==="male")));
  const vc=(p,kid)=>`<span class="vc" data-vid="${p.id}">${card(p,kid&&siblingsOf(p).length?undefined:{nn:1})}</span>`;
- const vr=p=>`<span class="vc vstub" data-sid="${p.id}"><a class="pc vref" href="javascript:void(0)" onclick="vJump(${p.id})" title="Shown in another place - tap to jump">${esc(dispName(p))} <b>⇄</b></a></span>`;
+ const vr=(p,kid)=>{const num=kid&&bo(p)!==null&&siblingsOf(p).length>0;return`<span class="vc vstub" data-sid="${p.id}"><a class="pc vref${num?" hb":""}" href="javascript:void(0)" onclick="vJump(${p.id})" title="Shown in another place - tap to jump">${num?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:""}${esc(dispName(p))} <b>⇄</b></a></span>`};
  /* one drawing pass. hold = women who must only be a stub under their own parents (their main box sits beside the husband) */
  function run(hold){
   const placed=new Set(),asChild=new Set();
@@ -757,7 +757,7 @@ function vertHtml(T,pool){
    const ord=k=>k==="s"?-1:all.findIndex(s=>String(s.id)===k);
    const head=`<div class="vu">${vc(p,isKid)}${all.map(s=>`<span class="vw" data-h="${s.id}">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
    const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
-    `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c)}</li>`;asChild.add(c.id);return unit(c,np,true)}).join("")}</ul></div>`);
+    `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c,true)}</li>`;asChild.add(c.id);return unit(c,np,true)}).join("")}</ul></div>`);
    return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}</li>`}
   let body="";
   roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
