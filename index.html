@@ -608,7 +608,7 @@ function hourHtml(T,pool){
  h+=`<div class="hcards"><div class="hcl cur">${fcard(f,true)}${sps.map(s=>`<span class="heart">♥</span>${fcard(s)}`).join("")}</div></div>
  <div class="hcards" style="margin-top:6px"><a class="btn alt" href="#/person/${f.id}">Open full record ›</a></div>`;
  if(kids.length)h+=`${V}<div class="hl">Children</div><div class="hcards">${kids.map(c=>fcard(c)).join("")}</div>`;
- if(gk.length)h+=`<details class="hgk"><summary>Grandchildren (${gk.length})</summary><div class="hcards" style="margin-top:6px">${gk.map(c=>fcard(c)).join("")}</div></details>`;
+ if(gk.length)h+=`<details class="hgk" open><summary>Grandchildren (${gk.length})</summary><div class="hcards" style="margin-top:6px">${gk.map(c=>fcard(c)).join("")}</div></details>`;
  return h+`</div>`}
 
 
