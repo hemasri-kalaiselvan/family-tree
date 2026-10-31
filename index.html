@@ -131,6 +131,8 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt .pc img{width:28px;height:28px}
 .vt .pc .n{font-size:.75rem;line-height:1.2}
 .vt .pc .p{font-size:.64rem}
+.vt .pc.hb{padding-left:21px;width:128px}
+.vt .pc .bn{left:2px;top:2px;transform:none;min-width:14px;height:14px;line-height:14px;padding:0 2px;font-size:.58rem}
 .vt .vref{border-style:dashed;font-style:italic;opacity:.85;font-size:.72rem;display:block;cursor:pointer;color:var(--ink)}
 .vt .vref b{color:#e8710a}
 @keyframes vpl{50%{box-shadow:0 0 0 10px rgba(232,113,10,.55)}}
@@ -733,12 +735,12 @@ function vertHtml(T,pool){
  const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
  const isF=p=>p.gender==="female"||(!p.gender&&(people.some(c=>c.mother_id===p.id)||spouseIds(p.id).some(i=>P(i)&&P(i).gender==="male")));
- const vc=p=>`<span class="vc" data-vid="${p.id}">${card(p,{nn:1})}</span>`;
+ const vc=(p,kid)=>`<span class="vc" data-vid="${p.id}">${card(p,kid&&siblingsOf(p).length?undefined:{nn:1})}</span>`;
  const vr=p=>`<span class="vc vstub" data-sid="${p.id}"><a class="pc vref" href="javascript:void(0)" onclick="vJump(${p.id})" title="Shown in another place - tap to jump">${esc(dispName(p))} <b>⇄</b></a></span>`;
  /* one drawing pass. hold = women who must only be a stub under their own parents (their main box sits beside the husband) */
  function run(hold){
   const placed=new Set(),asChild=new Set();
-  function unit(p,path){
+  function unit(p,path,isKid){
    placed.add(p.id);
    const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
    const fresh=all.filter(s=>!placed.has(s.id));
@@ -753,9 +755,9 @@ function vertHtml(T,pool){
     const k=sp?String(sp.id):(all.length===1?String(all[0].id):"s");
     if(!gs.has(k))gs.set(k,[]);gs.get(k).push(c)});
    const ord=k=>k==="s"?-1:all.findIndex(s=>String(s.id)===k);
-   const head=`<div class="vu">${vc(p)}${all.map(s=>`<span class="vw" data-h="${s.id}">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
+   const head=`<div class="vu">${vc(p,isKid)}${all.map(s=>`<span class="vw" data-h="${s.id}">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
    const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
-    `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c)}</li>`;asChild.add(c.id);return unit(c,np)}).join("")}</ul></div>`);
+    `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c)}</li>`;asChild.add(c.id);return unit(c,np,true)}).join("")}</ul></div>`);
    return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}</li>`}
   let body="";
   roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
