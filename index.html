@@ -1139,7 +1139,7 @@ function rec(p,full){
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
   ${ln("Spouse",spH)}${kidsH}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
-  ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a>`}</div>`}
+  ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a> <a class="more" style="font-size:.85rem;font-weight:600;padding:4px 10px" href="javascript:toTreeLR(${id})" title="Show in left-to-right tree">🌳 Left-right tree</a>`}</div>`}
 
 let selMode=false;const sel=new Set();let gf="all",kf="all";
 function viewMembers(app){
