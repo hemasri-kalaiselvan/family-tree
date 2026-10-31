@@ -117,6 +117,29 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hroots{display:flex;flex-direction:column;gap:40px;width:max-content;padding-right:56px}
 .hsv.tp{z-index:2}
 .hdup{font-size:.7rem;color:var(--mut);text-align:center;margin-top:2px}
+/* top-down tree */
+.vtw{overflow:auto;overscroll-behavior-x:contain;padding:12px 10px 18px;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.vtr{display:inline-flex;align-items:flex-start;gap:40px;vertical-align:top}
+.vt ul{padding-top:18px;position:relative;display:flex;justify-content:center;margin:0;list-style:none;padding-left:0}
+.vt li{position:relative;padding:18px 6px 0;text-align:center}
+.vt li::before,.vt li::after{content:'';position:absolute;top:0;right:50%;width:50%;height:18px;border-top:1px solid #9fb0cc}
+.vt li::after{right:auto;left:50%;border-left:1px solid #9fb0cc}
+.vt li:only-child::before,.vt li:only-child::after{display:none}
+.vt li:only-child{padding-top:0}
+.vt li:first-child::before,.vt li:last-child::after{border:0}
+.vt li:last-child::before{border-right:1px solid #9fb0cc;border-radius:0 6px 0 0}
+.vt li:first-child::after{border-radius:6px 0 0 0}
+.vt ul ul::before{content:'';position:absolute;top:0;left:50%;height:18px;border-left:1px solid #9fb0cc}
+.vu{display:inline-flex;align-items:center;gap:3px;position:relative;z-index:1}
+.vw{color:#c2185b;font-size:.8rem}
+.vt .pc{min-width:0;width:116px;padding:4px 6px;gap:5px;text-align:left}
+.vt .pc img{width:28px;height:28px}
+.vt .pc .n{font-size:.75rem;line-height:1.2}
+.vt .pc .p{font-size:.64rem}
+.vt .vref{border-style:dashed;font-style:italic;opacity:.85;font-size:.72rem;display:block;cursor:pointer;color:var(--ink)}
+.vt .vref b{color:#e8710a}
+@keyframes vpl{50%{box-shadow:0 0 0 10px rgba(232,113,10,.55)}}
+.vt .vc.vp .pc{border:2px solid #e8710a;animation:vpl 1s 3}
 </style></head><body>
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
@@ -252,10 +275,10 @@ const hasPar=p=>p.father_id||p.mother_id;
 function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
- const L=[["tree","Outline"],["hour","Hourglass"],["horiz","Horizontal"]];
+ const L=[["tree","Outline"],["hour","Hourglass"],["horiz","Horizontal"],["vert","Top-down"]];
  app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
- const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):horizHtml(T,pool);if(lay==="horiz")hLines()};
+ const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):horizHtml(T,pool);if(lay==="horiz")hLines()};
  window.drawLay=draw;
  document.querySelectorAll(".chip[data-l]").forEach(c=>c.onclick=()=>{lay=c.dataset.l;document.querySelectorAll(".chip[data-l]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  draw()}
@@ -628,6 +651,39 @@ function horizHtml(T,pool){
  <div class="mut">Scroll sideways · tap a name for the full record${whole?"":" · tap \"children ▸\" to start from there"}</div>
  <div class="hwrap" data-pairs="${[...pairs].join(",")}"><div class="hroots">${trees.map(t=>`<div class="hroot">${render(t,false)}</div>`).join("")}</div></div>
  ${unlinked.length?`<details class="sec"><summary><b>Not yet linked (${unlinked.length})</b></summary><div class="grid" style="margin-top:8px">${unlinked.map(cardNN).join("")}</div></details>`:""}`}
+
+/* ---- layout 4: top-down tree ---- */
+function vJump(id){
+ const e=document.querySelector('.vt .vc[data-vid="'+id+'"]');if(!e)return;
+ document.querySelectorAll('.vt .vc.vp').forEach(x=>x.classList.remove('vp'));
+ e.classList.add('vp');e.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
+ setTimeout(()=>e.classList.remove('vp'),3500)}
+function vertHtml(T,pool){
+ if(!pool.length)return'<div class="status">No people yet.</div>';
+ const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
+ const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
+ const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
+ const placed=new Set();
+ const vc=p=>`<span class="vc" data-vid="${p.id}">${card(p,{nn:1})}</span>`;
+ const vr=p=>`<span class="vc"><a class="pc vref" href="javascript:void(0)" onclick="vJump(${p.id})" title="Shown in another place - tap to jump">${esc(dispName(p))} <b>⇄</b></a></span>`;
+ function unit(p,path){
+  placed.add(p.id);
+  const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
+  const fresh=all.filter(s=>!placed.has(s.id));
+  fresh.forEach(s=>placed.add(s.id));
+  const ids=[p.id,...fresh.map(s=>s.id)];
+  const np=path.concat(ids);
+  const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
+  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
+  const head=`<div class="vu">${vc(p)}${all.map(s=>`<span class="vw">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
+  const kh=kids.map(k=>placed.has(k.id)?`<li>${vr(k)}</li>`:unit(k,np)).join("");
+  return`<li>${head}${kids.length?`<ul>${kh}</ul>`:""}</li>`}
+ let body="";
+ roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
+ const left=pool.filter(p=>!placed.has(p.id));
+ return`<div class="mut">Scroll sideways and down · tap a name for the full record · dashed ⇄ box = same person shown elsewhere, tap to jump</div>
+ <div class="vtw vt"><div class="vtr">${body||'<div class="status">No families linked yet.</div>'}</div></div>
+ ${left.length?`<details class="sec"><summary><b>Not yet linked (${left.length})</b></summary><div class="grid" style="margin-top:8px">${left.map(cardNN).join("")}</div></details>`:""}`}
 
 /* ---------- Members + record ---------- */
 let q="",mf="all";
