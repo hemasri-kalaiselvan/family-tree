@@ -133,6 +133,25 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt .pc .p{font-size:.64rem}
 .zst{position:sticky;top:var(--hh,52px);z-index:9;background:var(--bg);padding:6px 0}
 .zst .tools{margin:0 0 6px}
+#more{font-size:1.5rem;padding:4px 10px;cursor:pointer;background:none;border:0;color:#fff;line-height:1}
+#mmenu{position:fixed;top:var(--hh,52px);right:8px;z-index:50;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px #0004;padding:6px;min-width:170px}
+#mmenu a{display:block;padding:10px 12px;border-radius:8px;font-weight:600;color:var(--ink)}
+#mmenu a:hover{background:#e7eef8}
+.bnr{background:linear-gradient(135deg,#fff4e8,#ffe9f0);border:1px solid #f1c9a5;border-radius:12px;padding:8px 12px;margin:8px 0}
+.bnr .bt{font-weight:700;margin-bottom:2px}
+.bnr .br{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:.88rem;border-top:1px solid #f1d9c4}
+.bnr .bt+.br{border-top:0}
+.bnr .bx{flex:1;min-width:0;overflow-wrap:anywhere}
+.bnr .bw{white-space:nowrap;color:var(--pri);font-size:.8rem}
+.bnr .br.td .bw{color:#c2185b}
+.bnr>.lk{display:inline-block;margin-top:4px;font-size:.85rem}
+.evm{margin:16px 0 4px;color:var(--pri);font-size:1rem}
+.evr{display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin:4px 0;font-size:.9rem}
+.evr.td{border-color:#c2185b;background:#fff0f5}
+.evd{flex:none;width:28px;text-align:center;font-weight:700;color:var(--pri)}
+.evi{flex:none}
+.evx{flex:1;min-width:0;overflow-wrap:anywhere}
+.evw{flex:none;font-size:.78rem;color:#c2185b;font-weight:600;white-space:nowrap}
 .zbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0}
 .zbar button{padding:4px 14px;min-width:42px}
 .zw{overflow:auto;height:calc(100vh - 220px);min-height:260px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain;touch-action:pan-x pan-y}
@@ -165,6 +184,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 <header><div class="top">
   <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
   <nav id="nav"></nav>
+  <button id="more" title="More" aria-label="More">⋮</button>
   <button id="who" title="Sign in" aria-label="Sign in">👤</button>
 </div></header>
 <main id="app"><div class="status">Loading…</div></main>
@@ -261,6 +281,7 @@ function renderNav(){
  const items=[["/vetri","Vetri"],["/raj","Raj"],["/members","Members"]];
  if(canEdit())items.push(["/add","+ Add"]);
  $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/vetri"&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("");
+ document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
 window.addEventListener("scroll",()=>{$("#top").style.display=scrollY>300?"block":"none"});
@@ -278,6 +299,9 @@ window.addEventListener("hashchange",e=>{
  if(s&&canRest(to)){if(s.zs&&window.curZ)window.curZ.set(s.zs);sbox().forEach((el,i)=>{if(s.w[i]){el.scrollLeft=s.w[i][0];el.scrollTop=s.w[i][1]}});window.scrollTo(0,s.y)}
  else window.scrollTo(0,0)});
 $("#who").onclick=()=>{location.hash="#/login"};
+$("#more").onclick=e=>{e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
+ const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/events">📅 Events</a>';document.body.appendChild(d)};
+document.addEventListener("click",()=>{const o=$("#mmenu");if(o)o.remove()});
 
 function route(){
  window.curZ=null;document.body.classList.remove("bulkon");if(!/^#\/members/.test(location.hash)){selMode=false;sel.clear()}
@@ -286,11 +310,67 @@ function route(){
  const app=$("#app");
  if(a==="login")return viewLogin(app);
  if(loadErr){app.innerHTML=`<div class="status warn">Could not load data: ${esc(loadErr)}<br>Did you run schema.sql in Supabase?</div>`;return}
+ if(a==="events")return viewEvents(app);
  if(a==="members")return viewMembers(app);
  if(a==="person")return viewPerson(app,+b);
  if(a==="add"){if(canEdit()){app.innerHTML="";openPerson()}else location.hash="#/login";return}
  if(a==="raj")return viewTree(app,"rajmohan");
  viewTree(app,"vetri")}
+
+/* ---------- Events: birthdays, wedding anniversaries, memorials ---------- */
+const MNAME=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function mdOf(s){let m;if(!s)return null;
+ if(m=String(s).match(/^--(\d{2})-(\d{2})$/))return{m:+m[1],d:+m[2],y:null};
+ if(m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/))return{m:+m[2],d:+m[3],y:+m[1]};
+ return null}
+function allEvents(){
+ const ev=[];
+ people.forEach(p=>{
+  const b=mdOf(p.dob);if(b)ev.push({k:"b",...b,t:[p.tree],p:[p.id],late:isLate(p)});
+  const d=mdOf(p.dod);if(d)ev.push({k:"d",...d,t:[p.tree],p:[p.id]})});
+ marriages.forEach(m=>{
+  if(m.status==="divorced"||m.status==="separated")return;
+  const w=mdOf(m.marriage_date),a=P(m.person1_id),b=P(m.person2_id);
+  if(w&&a&&b)ev.push({k:"w",...w,t:[a.tree,b.tree],p:[a.id,b.id]})});
+ return ev}
+const todayD=()=>{const t=new Date();t.setHours(0,0,0,0);return t};
+function nextOcc(e,t){let dt=new Date(t.getFullYear(),e.m-1,e.d);if(dt<t)dt=new Date(t.getFullYear()+1,e.m-1,e.d);return dt}
+function evParts(e,dt){
+ const n=e.y?dt.getFullYear()-e.y:null,nm1=dispName(P(e.p[0]));
+ if(e.k==="w")return{icon:"💍",title:nm1+" & "+dispName(P(e.p[1])),note:"Wedding anniversary"+(n?" · "+n+" years":"")};
+ if(e.k==="d")return{icon:"🕯️",title:nm1,note:"Memorial"+(n?" · "+n+" years":"")};
+ return e.late?{icon:"🎂",title:nm1,note:"Birth anniversary"+(e.y?" · born "+e.y:"")}:{icon:"🎂",title:nm1,note:"Birthday"+(n?" · turns "+n:"")}}
+const whenTxt=n=>n===0?"Today":n===1?"Tomorrow":"in "+n+" days";
+const dm2=e=>String(e.d).padStart(2,"0")+"-"+String(e.m).padStart(2,"0");
+/* banner: birthdays (living) and weddings that are today or coming in the next 30 days; label = all / vetri / rajmohan */
+function bannerHtml(label){
+ const t=todayD();
+ const list=allEvents().filter(e=>((e.k==="b"&&!e.late)||e.k==="w")&&(label==="all"||e.t.includes(label)))
+  .map(e=>{const dt=nextOcc(e,t);return{e,dt,n:Math.round((dt-t)/864e5)}}).sort((a,b)=>a.n-b.n);
+ if(!list.length)return"";
+ let show=list.filter(x=>x.n<=30);const soon=show.length>0;
+ if(!soon)show=[list[0]];
+ const top=show.slice(0,5),more=show.length-top.length;
+ const rows=top.map(x=>{const q=evParts(x.e,x.dt);
+  return`<a class="br${x.n===0?" td":""}" href="#/person/${x.e.p[0]}"><span>${q.icon}</span><span class="bx"><b>${esc(q.title)}</b> <span class="mut">${esc(q.note)} · ${dm2(x.e)}</span></span><b class="bw">${whenTxt(x.n)}</b></a>`}).join("");
+ return`<div class="bnr"><div class="bt">🎉 ${soon?"Today &amp; upcoming":"Next up"}</div>${rows}<a class="lk" href="#/events">${more>0?"+"+more+" more · ":""}All events ›</a></div>`}
+let evf="all";
+function viewEvents(app){
+ const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
+ app.innerHTML=`<h2>Events</h2><div class="chips">${chips.map(([k,l])=>`<span class="chip ${evf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="evc" class="mut" style="margin-left:auto;align-self:center"></span></div><div id="evb"></div><div id="evl"></div>`;
+ const draw=()=>{
+  const t=todayD();
+  const ev=allEvents().filter(e=>evf==="all"||e.t.includes(evf)).sort((a,b)=>a.m-b.m||a.d-b.d||a.k.localeCompare(b.k));
+  let h="",cm=0;
+  ev.forEach(e=>{
+   if(e.m!==cm){cm=e.m;h+=`<h3 class="evm">${MNAME[cm-1]}</h3>`}
+   const dt=nextOcc(e,t),n=Math.round((dt-t)/864e5),q=evParts(e,dt);
+   h+=`<a class="evr${n===0?" td":""}" href="#/person/${e.p[0]}"><span class="evd">${String(e.d).padStart(2,"0")}</span><span class="evi">${q.icon}</span><span class="evx"><b>${esc(q.title)}</b><span class="mut"> ${esc(q.note)}${e.y?" · "+e.y:""}</span></span><span class="evw">${n<=30?whenTxt(n):""}</span></a>`});
+  $("#evb").innerHTML=bannerHtml(evf);
+  $("#evl").innerHTML=h||'<div class="status">No dates recorded yet.</div>';
+  $("#evc").textContent=ev.length+" dates"};
+ document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{evf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
+ draw()}
 
 /* ---------- Tree (home) ---------- */
 let curTree="vetri",lay="lrt",depthN=99,depthV="all";
@@ -309,7 +389,7 @@ function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
  const L=[["lrt","Left-right"],["vert","Top-down"],["hour","Hourglass"],["tree","Outline"],["horiz","Horizontal"]];
- app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
+ app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>${bannerHtml(T)}
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
  const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):lay==="lrt"?vertHtml(T,pool,true):horizHtml(T,pool);window.curZ=null;if(lay==="horiz"){hLines();zoomWrap(".hwrap")}if(lay==="tree")pDup();if(lay==="vert"||lay==="lrt"){const va=lay==="lrt"?vAnchH:vAnch;vMark();va();zoomWrap(".vtw");document.fonts&&document.fonts.ready.then(()=>{if($(".vt")){const z=$(".zi"),t=z?z.style.transform:"";if(z)z.style.transform="none";va();if(z)z.style.transform=t;if(window.curZ)window.curZ.refit()}})}};
  window.drawLay=draw;
