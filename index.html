@@ -248,7 +248,19 @@ function renderNav(){
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
 window.addEventListener("scroll",()=>{$("#top").style.display=scrollY>300?"block":"none"});
-window.addEventListener("hashchange",()=>{renderNav();route();window.scrollTo(0,0)});
+/* remember where you were on the tree / members list, so Back from a person page returns to the same spot */
+history.scrollRestoration="manual";
+const SV={};
+const hk=u=>{try{return new URL(u).hash||"#/"}catch(e){return"#/"}};
+const canRest=h=>/^#\/(vetri|raj|members)?$/.test(h);
+const sbox=()=>[...document.querySelectorAll(".vtw,.hwrap")];
+window.addEventListener("hashchange",e=>{
+ const from=hk(e.oldURL),to=hk(e.newURL);
+ if(canRest(from))SV[from]={y:scrollY,w:sbox().map(el=>[el.scrollLeft,el.scrollTop])};
+ renderNav();route();
+ const s=SV[to];
+ if(s&&canRest(to)){sbox().forEach((el,i)=>{if(s.w[i]){el.scrollLeft=s.w[i][0];el.scrollTop=s.w[i][1]}});window.scrollTo(0,s.y)}
+ else window.scrollTo(0,0)});
 $("#who").onclick=()=>{location.hash="#/login"};
 
 function route(){
@@ -698,25 +710,41 @@ function vertHtml(T,pool){
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
- const placed=new Set();
+ const isF=p=>p.gender==="female"||(!p.gender&&people.some(c=>c.mother_id===p.id));
  const vc=p=>`<span class="vc" data-vid="${p.id}">${card(p,{nn:1})}</span>`;
  const vr=p=>`<span class="vc vstub" data-sid="${p.id}"><a class="pc vref" href="javascript:void(0)" onclick="vJump(${p.id})" title="Shown in another place - tap to jump">${esc(dispName(p))} <b>⇄</b></a></span>`;
- function unit(p,path){
-  placed.add(p.id);
-  const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
-  const fresh=all.filter(s=>!placed.has(s.id));
-  fresh.forEach(s=>placed.add(s.id));
-  const ids=[p.id,...fresh.map(s=>s.id)];
-  const np=path.concat(ids);
-  const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
-  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-  const head=`<div class="vu">${vc(p)}${all.map(s=>`<span class="vw">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
-  const kh=kids.map(k=>placed.has(k.id)?`<li>${vr(k)}</li>`:unit(k,np)).join("");
-  return`<li>${head}${kids.length?`<ul>${kh}</ul>`:""}</li>`}
- let body="";
- roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
- const left=pool.filter(p=>!placed.has(p.id));
- return`<div class="mut">Scroll sideways and down · tap a name for the full record · orange boxes = same person shown twice (the main box and a dashed ⇄ stub) · tap the stub to jump to the main · tap the main to choose person page or stub</div>
+ /* one drawing pass. hold = women who must only be a stub under their own parents (their main box sits beside the husband) */
+ function run(hold){
+  const placed=new Set(),asChild=new Set();
+  function unit(p,path){
+   placed.add(p.id);
+   const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
+   const fresh=all.filter(s=>!placed.has(s.id));
+   fresh.forEach(s=>placed.add(s.id));
+   const ids=[p.id,...fresh.map(s=>s.id)];
+   const np=path.concat(ids);
+   const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
+   const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
+   const head=`<div class="vu">${vc(p)}${all.map(s=>`<span class="vw">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
+   const kh=kids.map(k=>{if(placed.has(k.id)||hold.has(k.id))return`<li>${vr(k)}</li>`;asChild.add(k.id);return unit(k,np)}).join("");
+   return`<li>${head}${kids.length?`<ul>${kh}</ul>`:""}</li>`}
+  let body="";
+  roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
+  return{placed,asChild,body}}
+ /* pass 1 finds who is reachable as somebody's child; then every woman whose husband is a child of his own parents
+    gets her stub under her parents, and the couple (with her main box) is drawn under the husband's parents */
+ let out=run(new Set());
+ const hold=new Set();
+ people.forEach(k=>{if(hasPar(k)&&isF(k)&&spouseIds(k.id).map(P).some(h=>h&&!isF(h)&&hasPar(h)&&out.asChild.has(h.id)))hold.add(k.id)});
+ if(hold.size){
+  for(let it=0;it<4;it++){
+   out=run(hold);
+   const bad=[...hold].filter(id=>!out.placed.has(id));
+   if(!bad.length)break;
+   bad.forEach(id=>hold.delete(id));
+   if(!hold.size){out=run(hold);break}}}
+ const body=out.body,left=pool.filter(p=>!out.placed.has(p.id));
+ return`<div class="mut">Scroll sideways and down · tap a name for the full record · orange boxes = same person shown twice: the main box (men under their parents, women beside their husband) and a dashed ⇄ stub · tap the stub to jump to the main · tap the main to choose person page or stub</div>
  <div class="vtw vt"><div class="vtr">${body||'<div class="status">No families linked yet.</div>'}</div></div>
  ${left.length?`<details class="sec"><summary><b>Not yet linked (${left.length})</b></summary><div class="grid" style="margin-top:8px">${left.map(cardNN).join("")}</div></details>`:""}`}
 
