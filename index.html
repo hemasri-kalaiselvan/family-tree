@@ -119,21 +119,12 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .hdup{font-size:.7rem;color:var(--mut);text-align:center;margin-top:2px}
 /* top-down tree */
 .vtw{overflow:auto;overscroll-behavior-x:contain;padding:12px 10px 18px;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px}
-.vtr{display:inline-flex;align-items:flex-start;gap:40px;vertical-align:top}
-.vt ul{padding-top:18px;position:relative;display:flex;justify-content:center;margin:0;list-style:none;padding-left:0}
-.vt li{position:relative;padding:18px 6px 0;text-align:center;--ax:50%}
-.vt li::before,.vt li::after{content:'';position:absolute;top:0;height:18px;border-top:1px solid #9fb0cc}
-.vt li::before{left:0;width:var(--ax,50%)}
-.vt li::after{left:var(--ax,50%);right:0;border-left:1px solid #9fb0cc}
-.vt li:only-child::before,.vt li:only-child::after{display:none}
-.vt li:only-child{padding-top:0}
-.vt li:first-child::before,.vt li:last-child::after{border:0}
-.vt li:last-child::before{border-right:1px solid #9fb0cc;border-radius:0 6px 0 0}
-.vt li:first-child::after{border-radius:6px 0 0 0}
-.vt ul ul::before{content:'';position:absolute;top:0;left:50%;height:18px;border-left:1px solid #9fb0cc}
-.vt li.oc:only-child{padding-top:18px}
-.vt li.oc:only-child::before{display:block;left:var(--bl);right:auto;width:var(--bw);height:0;border:0;border-top:1px solid #9fb0cc;border-radius:0}
-.vt li.oc:only-child::after{display:block;left:var(--ax);right:auto;width:0;height:18px;border:0;border-left:1px solid #9fb0cc;border-radius:0}
+.vtr{display:inline-flex;align-items:flex-start;gap:40px;vertical-align:top;position:relative}
+.vtr>svg.vl{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
+.vt ul{display:flex;justify-content:center;align-items:flex-start;margin:0;padding:0;list-style:none}
+.vt li{position:relative;padding:44px 8px 0;text-align:center}
+.vt .vtr>ul>li{padding-top:0}
+.vks{display:flex;justify-content:center;align-items:flex-start;gap:24px}
 .vu{display:inline-flex;align-items:center;gap:3px;position:relative;z-index:1}
 .vw{color:#c2185b;font-size:.8rem}
 .vt .pc{min-width:0;width:116px;padding:4px 6px;gap:5px;text-align:left}
@@ -675,18 +666,38 @@ function horizHtml(T,pool){
 /* ---- layout 4: top-down tree ---- */
 /* the line from the parents lands on the child's own card (not on the heart between the child and the partner) */
 function vAnch(){
- document.querySelectorAll('.vt li').forEach(li=>{li.classList.remove('oc');['--ax','--bl','--bw'].forEach(k=>li.style.removeProperty(k))});
- document.querySelectorAll('.vt li>ul').forEach(ul=>{
-  const ur=ul.getBoundingClientRect();if(!ur.width)return;
-  const cx=ur.left+ur.width/2,lis=[...ul.children].filter(x=>x.tagName==='LI');
-  lis.forEach(li=>{
-   const c=li.querySelector(':scope>.vu>.vc')||li.querySelector(':scope>.vc');if(!c)return;
-   const r=c.getBoundingClientRect(),l=li.getBoundingClientRect();if(!l.width)return;
-   let a=r.left+r.width/2;
-   if(Math.abs(a-cx)<=12)a=cx; /* almost straight below the parents: make it one clean line */
-   li.style.setProperty('--ax',(a-l.left)+'px');
-   if(lis.length===1&&Math.abs(a-cx)>0.5){ /* only child: step sideways, then drop onto the child's own box */
-    li.classList.add('oc');li.style.setProperty('--bl',(Math.min(a,cx)-l.left)+'px');li.style.setProperty('--bw',Math.abs(a-cx)+'px')}})})}
+ /* ONE rule for every line: a child's line always ends on the middle of the child's own box.
+    It starts under the parents: the heart of a couple, or, when a man has several wives, under each wife's own box
+    (her children get their own colour), and under his own box for children with no other parent listed. */
+ const root=document.querySelector('.vt .vtr');if(!root)return;
+ const old=root.querySelector(':scope>svg.vl');if(old)old.remove();
+ const R=root.getBoundingClientRect(),X=v=>(v-R.left).toFixed(1),Y=v=>(v-R.top).toFixed(1);
+ const paths=[];
+ root.querySelectorAll('li').forEach(li=>{
+  const head=li.querySelector(':scope>.vu'),vks=li.querySelector(':scope>.vks');
+  if(!head||!vks)return;
+  const hr=head.getBoundingClientRect(),hearts=head.querySelectorAll('.vw');
+  const groups=[...vks.children].filter(g=>g.classList.contains('vg'));
+  const multi=groups.length>1;
+  groups.forEach((g,gi)=>{
+   const kids=[...g.firstElementChild.children].map(k=>k.querySelector(':scope>.vu>.vc')||k.querySelector(':scope>.vc')).filter(Boolean).map(c=>c.getBoundingClientRect());
+   if(!kids.length)return;
+   const from=g.dataset.from;let px,y0;
+   if(hearts.length===1){const r=hearts[0].getBoundingClientRect();px=r.left+r.width/2;y0=hr.bottom}
+   else{
+    const c=(from==="s"?head.querySelector(':scope>.vc'):head.querySelector('.vc[data-vid="'+from+'"],.vc[data-sid="'+from+'"]'))||head.querySelector(':scope>.vc');
+    const r=c.getBoundingClientRect();px=r.left+r.width/2;y0=r.bottom}
+   const xs=kids.map(r=>r.left+r.width/2),ky=Math.min(...kids.map(r=>r.top));
+   let near=null;xs.forEach(x=>{if(Math.abs(x-px)<=8&&(near===null||Math.abs(x-px)<Math.abs(near-px)))near=x});
+   if(near!==null)px=near; /* almost straight below the parent: one clean line */
+   const by=ky-30+(multi?(gi%4)*6:0);
+   const col=multi?LCOL[gi%LCOL.length]:"#9fb0cc";
+   const lo=Math.min(px,...xs),hi=Math.max(px,...xs);
+   let d=`M${X(px)} ${Y(y0)}V${Y(by)}`;
+   if(hi-lo>0.5)d+=`M${X(lo)} ${Y(by)}H${X(hi)}`;
+   kids.forEach((r,i)=>{d+=`M${X(xs[i])} ${Y(by)}V${Y(r.top)}`});
+   paths.push(`<path d="${d}" stroke="${col}"/>`)})});
+ root.insertAdjacentHTML("afterbegin",`<svg class="vl" width="${root.scrollWidth}" height="${root.scrollHeight}" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${paths.join("")}</svg>`)}
 function vFlash(e){if(!e)return;
  document.querySelectorAll('.vt .vc.vp').forEach(x=>x.classList.remove('vp'));
  e.classList.add('vp');e.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
@@ -734,11 +745,18 @@ function vertHtml(T,pool){
    fresh.forEach(s=>placed.add(s.id));
    const ids=[p.id,...fresh.map(s=>s.id)];
    const np=path.concat(ids);
-   const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
-   const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-   const head=`<div class="vu">${vc(p)}${all.map(s=>`<span class="vw">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
-   const kh=kids.map(k=>{if(placed.has(k.id)||hold.has(k.id))return`<li>${vr(k)}</li>`;asChild.add(k.id);return unit(k,np)}).join("");
-   return`<li>${head}${kids.length?`<ul>${kh}</ul>`:""}</li>`}
+   const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort(cmp);
+   /* children are grouped by their other parent, so with several wives each wife's children get their own line */
+   const gs=new Map();
+   kids.forEach(c=>{
+    const sp=all.find(s=>s.id===c.father_id||s.id===c.mother_id);
+    const k=sp?String(sp.id):(all.length===1?String(all[0].id):"s");
+    if(!gs.has(k))gs.set(k,[]);gs.get(k).push(c)});
+   const ord=k=>k==="s"?-1:all.findIndex(s=>String(s.id)===k);
+   const head=`<div class="vu">${vc(p)}${all.map(s=>`<span class="vw" data-h="${s.id}">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
+   const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
+    `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c)}</li>`;asChild.add(c.id);return unit(c,np)}).join("")}</ul></div>`);
+   return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}</li>`}
   let body="";
   roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
   return{placed,asChild,body}}
