@@ -203,6 +203,10 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const canEdit=()=>role==="admin";
 const P=id=>people.find(p=>p.id===id);
 
+/* death details (Tamil calendar) - dropdown choices */
+const TMONTH=["Chithirai","Vaikasi","Aani","Aadi","Aavani","Purattasi","Aippasi","Karthigai","Margazhi","Thai","Maasi","Panguni"];
+const PAKSHA=["Shukla Paksha (Valarpirai)","Krishna Paksha (Theipirai)"];
+const THITHI=["Prathamai","Dwithiyai","Thrithiyai","Chathurthi","Panchami","Shashti","Sapthami","Ashtami","Navami","Dasami","Ekadasi","Dwadasi","Thrayodasi","Chathurdasi","Pournami","Amavasai"];
 /* ---------- field definitions: [key,label,type,extra] ---------- */
 const PF=[
 ["name","Name","text"],["tree","Family tree","sel",["vetri","rajmohan"]],["nickname","Nickname","text"],
@@ -210,7 +214,7 @@ const PF=[
 ["father_id","Father","person"],["mother_id","Mother","person"],["birth_order","Birth order among siblings","num"],
 ["dob","Date of birth","date"],["birth_time","Time of birth","time"],["birth_place","Place of birth","text"],
 ["life_status","Alive / Deceased","sel",["alive","deceased","unknown"]],
-["dod","Date of death","date"],["death_place","Place of death","text"],
+["dod","Date of death","date"],["death_place","Place of death","text"],["death_tamil_month","Tamil month of death","sel",TMONTH],["death_paksha","Paksha (death)","sel",PAKSHA],["death_thithi","Thithi (death)","sel",THITHI],
 ["education","Education","text"],["profession","Profession","text"],
 ["current_location","Currently lives in","text"],["native_place","Native place","text"],
 ["kothram","Kothram","text"],["rasi","Rasi","text"],["natchathiram","Natchathiram","text"],
@@ -339,7 +343,7 @@ function evParts(e,dt){
  const n=e.y?dt.getFullYear()-e.y:null,nm1=dispName(P(e.p[0]));
  if(e.k==="w")return{icon:"💍",title:nm1+" & "+dispName(P(e.p[1])),note:"Wedding anniversary"+(n?" · "+n+" years":"")};
  if(e.k==="d")return{icon:"🕯️",title:nm1,note:"Memorial"+(n?" · "+n+" years":"")};
- return e.late?{icon:"🎂",title:nm1,note:"Birth anniversary"+(e.y?" · born "+e.y:"")}:{icon:"🎂",title:nm1,note:"Birthday"+(n?" · turns "+n:"")}}
+ return e.late?{icon:"🎂",title:nm1,note:"Birth anniversary"}:{icon:"🎂",title:nm1,note:"Birthday"+(n?" · turns "+n:"")}}
 const whenTxt=n=>n===0?"Today":n===1?"Tomorrow":"in "+n+" days";
 const dm2=e=>String(e.d).padStart(2,"0")+"-"+String(e.m).padStart(2,"0");
 /* banner: birthdays (living) and weddings that are today or coming in the next 30 days; label = all / vetri / rajmohan */
@@ -1035,7 +1039,7 @@ function moreRows(p){
  const SK=new Set(["name","photo_url","father_id","mother_id","tree","is_placeholder"]);
  const has=(k,v)=>v!=null&&v!==""&&!(k==="life_status"&&v==="unknown");
  const dead=p.is_late||p.life_status==="deceased"||!!p.dod;
- const fl=PF.filter(([k])=>k in p&&!SK.has(k)&&(dead||!["dod","death_place"].includes(k)));
+ const fl=PF.filter(([k])=>k in p&&!SK.has(k)&&(dead||!["dod","death_place","death_tamil_month","death_paksha","death_thithi"].includes(k)));
  const filled=fl.filter(([k])=>has(k,p[k])).map(([k,l,t])=>`<b>${l}</b><span>${fv(k,t,p[k])}</span>`);
  const blank=fl.filter(([k])=>!has(k,p[k])).map(([k,l])=>`<b class="bl">${l}</b><span class="bl">—</span>`);
  return filled.join("")+(blank.length?`<b style="grid-column:1/-1;margin-top:10px">Not filled yet</b>`+blank.join(""):"")}
@@ -1151,7 +1155,7 @@ function openForm(title,F,rec,onSave){
   if(err){$("#msg").textContent=err;$("#sv").disabled=false}else d.close()};
  const tg=()=>{const s=document.getElementById("f_life_status"),od=document.getElementById("f_dod");if(!s)return;
   const dead=s.value==="deceased"||(od&&od.value.trim()!=="");
-  d.querySelectorAll('[data-k="dod"],[data-k="death_place"]').forEach(x=>x.style.display=dead?"":"none")};
+  d.querySelectorAll('[data-k="dod"],[data-k="death_place"],[data-k="death_tamil_month"],[data-k="death_paksha"],[data-k="death_thithi"]').forEach(x=>x.style.display=dead?"":"none")};
  tg();const ls=document.getElementById("f_life_status");if(ls)ls.onchange=tg;
  d.showModal()}
 async function upPhoto(inp,id){const f=inp.files[0];if(!f)return;
