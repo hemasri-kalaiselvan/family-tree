@@ -279,8 +279,13 @@ async function load(){
  const [a,b]=await Promise.all([sb.rpc("ft_data",{tbl:"ft_people"}),sb.rpc("ft_data",{tbl:"ft_marriages"})]);
  if(a.error||b.error){loadErr=(a.error||b.error).message;people=[];marriages=[]}
  else{people=a.data;marriages=b.data}
- renderNav();route()}
-sb.auth.onAuthStateChange(()=>setTimeout(load,0));
+ const zk=window.curZ?{s:window.curZ.s,t:window.curZ.touched,w:sbox().map(el=>[el.scrollLeft,el.scrollTop]),y:scrollY}:null;
+ renderNav();route();
+ /* a reload (e.g. after sign-in or an edit) must not throw away the zoom / scroll position of the tree being viewed */
+ if(zk&&window.curZ){if(zk.t)window.curZ.set(zk.s);sbox().forEach((el,i)=>{if(zk.w[i]){el.scrollLeft=zk.w[i][0];el.scrollTop=zk.w[i][1]}});window.scrollTo(0,zk.y)}}
+/* the sign-in library fires events again whenever the browser tab regains focus; only reload when the signed-in user really changed */
+let authUid;
+sb.auth.onAuthStateChange((ev,ss)=>{const u=ss&&ss.user?ss.user.id:null;if(authUid!==undefined&&u===authUid&&ev!=="USER_UPDATED")return;authUid=u;setTimeout(load,0)});
 
 /* ---------- nav / routing ---------- */
 function renderNav(){
