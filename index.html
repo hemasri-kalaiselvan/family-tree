@@ -152,6 +152,8 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .evi{flex:none}
 .evx{flex:1;min-width:0;overflow-wrap:anywhere}
 .evw{flex:none;font-size:.78rem;color:#c2185b;font-weight:600;white-space:nowrap}
+.zfw.zfs{position:fixed;inset:0;z-index:60;background:var(--bg);padding:8px;overflow:hidden}
+.zfs .zst{position:static}
 .zbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0}
 .zbar button{padding:4px 14px;min-width:42px}
 .zw{overflow:auto;height:calc(100vh - 220px);min-height:260px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain;touch-action:pan-x pan-y}
@@ -159,7 +161,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .zi{position:absolute;left:0;top:0;transform-origin:0 0}
 .zi .hwrap,.zi .vtw{overflow:visible;width:max-content;margin:0;border:0;border-radius:0}
 .pc.pdup{border-color:#e8710a;box-shadow:0 0 0 1px #e8710a;background:#fff4e8}
-.couple .pc.vref{border-style:dashed;font-style:italic;opacity:.85;cursor:pointer;color:var(--ink);display:block}
+.couple .pc.vref{border-style:dashed;font-style:italic;opacity:.85;cursor:pointer;color:var(--ink);display:block;font-size:.8rem;font-weight:600;line-height:1.2}
 .couple .pc.vref b{color:#e8710a}
 .couple .pc.vp{animation:vpl 1s 3}
 .vt .pc.hb{padding-left:21px;width:128px}
@@ -234,11 +236,8 @@ const MF=[
 
 /* ---------- helpers ---------- */
 function fmtDate(s){if(!s)return"";let m;
- if(m=s.match(/^--(\d{2})-(\d{2})$/))return`${m[2]}-${m[1]}`;
- if(/^\d{4}$/.test(s))return s;
- if(m=s.match(/^(\d{4})-(\d{2})$/))return`${m[2]}-${m[1]}`;
- if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/))return`${m[3]}-${m[2]}-${m[1]}`;
- return s}
+ if(m=String(s).match(/^--(\d{2})-(\d{2})$/))return`yyyy-${m[1]}-${m[2]}`;   /* no year: yyyy-MM-DD */
+ return String(s)}   /* YYYY, YYYY-MM and YYYY-MM-DD are shown as stored */
 function normTime(v){if(!v)return"";const m=String(v).trim().match(/^(\d{1,2}):(\d{2})\s*([ap]m)?$/i);if(!m)return"";let h=+m[1];const ap=(m[3]||"").toLowerCase();if(ap==="pm"&&h<12)h+=12;if(ap==="am"&&h===12)h=0;return String(h).padStart(2,"0")+":"+m[2]}
 function fmtTime(v){const t=normTime(v);if(!t)return String(v||"");let[h,mi]=t.split(":").map(Number);const ap=h>=12?"PM":"AM";h=h%12||12;return h+":"+String(mi).padStart(2,"0")+" "+ap}
 const isLate=p=>p.is_late??(p.life_status==="deceased"||!!p.dod);
@@ -308,7 +307,7 @@ $("#more").onclick=e=>{e.stopPropagation();const o=$("#mmenu");if(o){o.remove();
 document.addEventListener("click",()=>{const o=$("#mmenu");if(o)o.remove()});
 
 function route(){
- window.curZ=null;document.body.classList.remove("bulkon");if(!/^#\/members/.test(location.hash)){selMode=false;sel.clear()}
+ window.curZ=null;document.body.style.overflow="";document.body.classList.remove("bulkon");if(!/^#\/members/.test(location.hash)){selMode=false;sel.clear()}
  if(/error_description=/.test(location.hash)){const m=decodeURIComponent((location.hash.match(/error_description=([^&]*)/)[1]||"").replace(/\+/g," "));$("#app").innerHTML=`<div class="status warn">Sign-in failed: ${esc(m)}<br>Request a new link from 👤 and open it right away.</div>`;return}
  const [,a,b]=(location.hash.slice(1)||"/").split("/");
  const app=$("#app");
@@ -321,6 +320,37 @@ function route(){
  if(a==="raj")return viewTree(app,"rajmohan");
  viewTree(app,"vetri")}
 
+/* ---- Thivasam: date of a Tamil month + paksha + thithi (approximate astronomical calculation for IST) ---- */
+const _rad=Math.PI/180,_m360=x=>((x%360)+360)%360;
+function sunMoon(ms){
+ const T=(ms/864e5+2440587.5-2451545)/36525,sn=x=>Math.sin(x*_rad);
+ const L0=280.46646+36000.76983*T,M=357.52911+35999.05029*T;
+ const sun=_m360(L0+(1.914602-0.004817*T)*sn(M)+0.019993*sn(2*M)+0.000289*sn(3*M)-0.00569-0.00478*sn(125.04-1934.136*T));
+ const Lm=218.3164477+481267.88123421*T,D=297.8501921+445267.1114034*T,Mm=134.9633964+477198.8675055*T,F=93.272095+483202.0175233*T;
+ const moon=_m360(Lm+6.288774*sn(Mm)+1.274027*sn(2*D-Mm)+0.658314*sn(2*D)+0.213618*sn(2*Mm)-0.185116*sn(M)-0.114332*sn(2*F)+0.058793*sn(2*D-2*Mm)+0.057066*sn(2*D-M-Mm)+0.053322*sn(2*D+Mm)+0.045758*sn(2*D-M)-0.040923*sn(M-Mm)-0.03472*sn(D)-0.030383*sn(M+Mm)+0.015327*sn(2*D-2*F)-0.012528*sn(Mm+2*F)+0.01098*sn(Mm-2*F));
+ return{sun,moon,T}}
+const tithiAt=ms=>{const o=sunMoon(ms);return Math.floor(_m360(o.moon-o.sun)/12)+1};
+const tmonthAt=ms=>{const o=sunMoon(ms);return Math.floor(_m360(o.sun-(23.853+o.T*100*0.013972))/30)};
+const _oc={};
+function thivasamOcc(y,tm,tn){
+ const k=y+"|"+tm+"|"+tn;if(_oc[k])return _oc[k];
+ const out=[];let run=[];
+ const flush=()=>{if(!run.length)return;
+  let pick=run.find(b=>tithiAt(b+8.5*36e5)===tn);
+  if(pick===undefined)pick=run.find(b=>tithiAt(b+0.5*36e5)===tn||tithiAt(b+12.5*36e5)===tn);
+  if(pick!==undefined){const d=new Date(pick);out.push(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()))}
+  run=[]};
+ for(let i=0;i<366;i++){const b=Date.UTC(y,0,1)+i*864e5;if(new Date(b).getUTCFullYear()!==y)break;
+  if(tmonthAt(b+12.5*36e5)===tm)run.push(b);else flush()}
+ flush();return _oc[k]=out}
+function thivasamNext(p,t){
+ const tm=TMONTH.indexOf(p.death_tamil_month),ti=THITHI.indexOf(p.death_thithi),pk=(p.death_paksha||"").split(" ")[0];
+ if(tm<0||ti<0)return null;
+ let tn;
+ if(p.death_thithi==="Amavasai")tn=30;else if(p.death_thithi==="Pournami")tn=15;
+ else if(pk==="Shukla")tn=ti+1;else if(pk==="Krishna")tn=ti+16;else return null;
+ const all=[...thivasamOcc(t.getFullYear(),tm,tn),...thivasamOcc(t.getFullYear()+1,tm,tn)].filter(d=>d>=t).sort((a,b)=>a-b);
+ return all[0]||null}
 /* ---------- Events: birthdays, wedding anniversaries, memorials ---------- */
 const MNAME=["January","February","March","April","May","June","July","August","September","October","November","December"];
 function mdOf(s){let m;if(!s)return null;
@@ -331,32 +361,35 @@ function allEvents(){
  const ev=[];
  people.forEach(p=>{
   const b=mdOf(p.dob);if(b)ev.push({k:"b",...b,t:[p.tree],p:[p.id],late:isLate(p)});
-  const d=mdOf(p.dod);if(d)ev.push({k:"d",...d,t:[p.tree],p:[p.id]})});
+  const d=mdOf(p.dod);if(d)ev.push({k:"d",...d,t:[p.tree],p:[p.id]});
+  const v=thivasamNext(p,todayD());
+  if(v)ev.push({k:"v",m:v.getMonth()+1,d:v.getDate(),y:null,dt:v,t:[p.tree],p:[p.id],tm:p.death_tamil_month,pk:(p.death_paksha||"").split(" ")[0],ti:p.death_thithi})});
  marriages.forEach(m=>{
   if(m.status==="divorced"||m.status==="separated")return;
   const w=mdOf(m.marriage_date),a=P(m.person1_id),b=P(m.person2_id);
   if(w&&a&&b)ev.push({k:"w",...w,t:[a.tree,b.tree],p:[a.id,b.id]})});
  return ev}
 const todayD=()=>{const t=new Date();t.setHours(0,0,0,0);return t};
-function nextOcc(e,t){let dt=new Date(t.getFullYear(),e.m-1,e.d);if(dt<t)dt=new Date(t.getFullYear()+1,e.m-1,e.d);return dt}
+function nextOcc(e,t){if(e.dt)return e.dt;let dt=new Date(t.getFullYear(),e.m-1,e.d);if(dt<t)dt=new Date(t.getFullYear()+1,e.m-1,e.d);return dt}
 function evParts(e,dt){
  const n=e.y?dt.getFullYear()-e.y:null,nm1=dispName(P(e.p[0]));
  if(e.k==="w")return{icon:"💍",title:nm1+" & "+dispName(P(e.p[1])),note:"Wedding anniversary"+(n?" · "+n+" years":"")};
+ if(e.k==="v")return{icon:"🙏",title:nm1,note:"Thivasam · "+[e.tm,e.ti==="Amavasai"||e.ti==="Pournami"?"":e.pk,e.ti].filter(Boolean).join(" · ")+" (approx.)"};
  if(e.k==="d")return{icon:"🕯️",title:nm1,note:"Memorial"+(n?" · "+n+" years":"")};
  return e.late?{icon:"🎂",title:nm1,note:"Birth anniversary"}:{icon:"🎂",title:nm1,note:"Birthday"+(n?" · turns "+n:"")}}
 const whenTxt=n=>n===0?"Today":n===1?"Tomorrow":"in "+n+" days";
-const dm2=e=>String(e.d).padStart(2,"0")+"-"+String(e.m).padStart(2,"0");
-/* banner: birthdays (living) and weddings that are today or coming in the next 30 days; label = all / vetri / rajmohan */
+const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+/* banner: birthdays (living), weddings, memorials (English date of death) and thivasam (Tamil month/paksha/thithi) that are today or coming in the next 30 days; label = all / vetri / rajmohan */
 function bannerHtml(label){
  const t=todayD();
- const list=allEvents().filter(e=>((e.k==="b"&&!e.late)||e.k==="w")&&(label==="all"||e.t.includes(label)))
+ const list=allEvents().filter(e=>((e.k==="b"&&!e.late)||e.k==="w"||e.k==="d"||e.k==="v")&&(label==="all"||e.t.includes(label)))
   .map(e=>{const dt=nextOcc(e,t);return{e,dt,n:Math.round((dt-t)/864e5)}}).sort((a,b)=>a.n-b.n);
  if(!list.length)return"";
  let show=list.filter(x=>x.n<=30);const soon=show.length>0;
  if(!soon)show=[list[0]];
  const top=show.slice(0,5),more=show.length-top.length;
  const rows=top.map(x=>{const q=evParts(x.e,x.dt);
-  return`<a class="br${x.n===0?" td":""}" href="#/person/${x.e.p[0]}"><span>${q.icon}</span><span class="bx"><b>${esc(q.title)}</b> <span class="mut">${esc(q.note)} · ${dm2(x.e)}</span></span><b class="bw">${whenTxt(x.n)}</b></a>`}).join("");
+  return`<a class="br${x.n===0?" td":""}" href="#/person/${x.e.p[0]}"><span>${q.icon}</span><span class="bx"><b>${esc(q.title)}</b> <span class="mut">${esc(q.note)} · ${ymd(x.dt)}</span></span><b class="bw">${whenTxt(x.n)}</b></a>`}).join("");
  return`<div class="bnr"><div class="bt">🎉 ${soon?"Today &amp; upcoming":"Next up"}</div>${rows}<a class="lk" href="#/events">${more>0?"+"+more+" more · ":""}All events ›</a></div>`}
 let evf="all";
 function viewEvents(app){
@@ -427,25 +460,31 @@ function oClick(e){
  d.style.top=(r.bottom+6+h>innerHeight?Math.max(8,r.top-h-6):r.bottom+6)+"px";
  d.querySelector("a").onclick=vPopClose;
  d.querySelectorAll("button").forEach(b=>b.onclick=()=>{vPopClose();oFlash(stubs[+b.dataset.i])})}
-document.addEventListener("click",oClick);
 /* zoom box for the Horizontal, Top-down and Left-right trees: opens at 70% (Fit button shows the whole tree); + / - / pinch / Ctrl+wheel to zoom */
 function zoomWrap(sel){
  const el=document.querySelector('#lb '+sel);if(!el)return;
  const tools=document.querySelector('#lb .tools');
  const stk=document.createElement('div');stk.className='zst';
  const bar=document.createElement('div');bar.className='zbar';
- bar.innerHTML='<button class="alt" data-z="out">−</button><button class="alt" data-z="fit">Fit</button><button class="alt" data-z="in">+</button><span class="mut" id="zp"></span>';
+ bar.innerHTML='<button class="alt" data-z="out">−</button><button class="alt" data-z="fit">Fit</button><button class="alt" data-z="in">+</button><button class="alt" data-z="full" title="Full screen">⛶</button><span class="mut" id="zp"></span>';
  const zw=document.createElement('div');zw.className='zw';
  const zs=document.createElement('div');zs.className='zs';
  const zi=document.createElement('div');zi.className='zi';
- el.parentNode.insertBefore(stk,el);if(tools)stk.appendChild(tools);stk.appendChild(bar);el.parentNode.insertBefore(zw,el);
- const sizeZw=()=>{const hh=(document.querySelector('header')||{}).offsetHeight||52;document.documentElement.style.setProperty('--hh',hh+'px');zw.style.height=Math.max(260,innerHeight-hh-stk.offsetHeight-12)+'px'};
+ const fw=document.createElement('div');fw.className='zfw';
+ el.parentNode.insertBefore(fw,el);fw.appendChild(stk);if(tools)stk.appendChild(tools);stk.appendChild(bar);fw.appendChild(zw);
+ const sizeZw=()=>{const full=fw.classList.contains('zfs'),hh=full?0:((document.querySelector('header')||{}).offsetHeight||52);if(!full)document.documentElement.style.setProperty('--hh',hh+'px');zw.style.height=Math.max(220,innerHeight-hh-stk.offsetHeight-(full?20:12))+'px'};
+ const fb=bar.querySelector('[data-z="full"]');
+ const setFS=on=>{fw.classList.toggle('zfs',on);document.body.style.overflow=on?'hidden':'';fb.textContent=on?'✕':'⛶';fb.title=on?'Exit full screen':'Full screen';
+  if(on){try{const r=fw.requestFullscreen&&fw.requestFullscreen();if(r&&r.catch)r.catch(()=>{})}catch(e){}}
+  else if(document.fullscreenElement&&document.exitFullscreen){try{document.exitFullscreen().catch(()=>{})}catch(e){}}
+  sizeZw();if(on)window.scrollTo(0,0)};
+ document.onfullscreenchange=()=>{if(!document.fullscreenElement&&fw.classList.contains('zfs'))setFS(false)};
  sizeZw();window.zResize=sizeZw;
  zw.appendChild(zs);zs.appendChild(zi);zi.appendChild(el);
  const Z={s:1,touched:false};
  const size=()=>({w:Math.ceil(el.scrollWidth),h:Math.ceil(el.scrollHeight)});
  const apply=(ns,ax,ay)=>{
-  ns=Math.max(.03,Math.min(2.5,ns));
+  ns=Math.max(.03,Math.min(6,ns));
   const x=ax==null?zw.clientWidth/2:ax,y=ay==null?zw.clientHeight/2:ay;
   const cx=(zw.scrollLeft+x)/Z.s,cy=(zw.scrollTop+y)/Z.s;
   Z.s=ns;const d=size();
@@ -458,7 +497,8 @@ function zoomWrap(sel){
  Z.def=()=>{apply(0.7);zw.scrollLeft=0;zw.scrollTop=0};
  Z.refit=()=>{if(!Z.touched)Z.def()};
  bar.onclick=e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.z==='fit'){Z.touched=false;Z.fit()}
+  if(b.dataset.z==='full')setFS(!fw.classList.contains('zfs'));
+  else if(b.dataset.z==='fit'){Z.touched=false;Z.fit()}
   else{Z.touched=true;apply(Z.s*(b.dataset.z==='in'?1.25:0.8))}};
  zw.addEventListener('wheel',e=>{if(!e.ctrlKey)return;e.preventDefault();const r=zw.getBoundingClientRect();
   Z.touched=true;apply(Z.s*(e.deltaY<0?1.1:0.9),e.clientX-r.left,e.clientY-r.top)},{passive:false});
@@ -959,6 +999,7 @@ function vClick(e){
  d.querySelector("a").onclick=vPopClose;
  d.querySelectorAll("button").forEach(b=>b.onclick=()=>{vPopClose();vFlash(stubs[+b.dataset.i])})}
 document.addEventListener("click",vClick);
+document.addEventListener("click",oClick);
 document.addEventListener("scroll",vPopClose,true);
 function vertHtml(T,pool,lr){
  if(!pool.length)return'<div class="status">No people yet.</div>';
