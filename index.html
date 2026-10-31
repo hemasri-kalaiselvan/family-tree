@@ -429,14 +429,16 @@ function hLines(){
    if(!ks.length)return null;
    return{g,idx,from,other,sc,ks,kx:Math.min(...ks.map(r=>r.l)),ys:ks.map(r=>r.cy),lk:other?links[key(from,other)]:null,
     col:g.dataset.multi==="1"?HCOL[+g.dataset.gi%HCOL.length]:"#b9c6dc"}}).filter(Boolean);
-  const kidLine=(o,sx,sy,col,sw)=>{
-   const lo=Math.min(sy,...o.ys),hi=Math.max(sy,...o.ys),own="K"+o.idx;
+  const kidLine=(o,sx,sy0,col,sw,dy)=>{
+   const sy=sy0+(dy||0),lo=Math.min(sy,...o.ys),hi=Math.max(sy,...o.ys),own="K"+o.idx;
    let bus=o.kx-9,best=1e9;
    for(let i=0;i<6;i++){
     const bx=o.kx-9-7*i;let bad=0;
     for(const t of segs)if(t[0]===t[2]&&Math.abs(t[0]-bx)<9){const ov=Math.min(Math.max(t[1],t[3]),hi+6)-Math.max(Math.min(t[1],t[3]),lo-6);if(ov>0)bad+=ov}
     if(bad<best){best=bad;bus=bx;if(!bad)break}}
-   let p=`M${sx} ${sy}H${bus}`;segs.push([sx,sy,bus,sy,own]);
+   let p=dy?`M${sx} ${sy0}V${sy}H${bus}`:`M${sx} ${sy}H${bus}`;
+   if(dy)segs.push([sx,sy0,sx,sy,own]);
+   segs.push([sx,sy,bus,sy,own]);
    if(hi>lo){p+=`M${bus} ${lo}V${hi}`;segs.push([bus,lo,bus,hi,own])}
    o.ks.forEach((r,j)=>{p+=`M${bus} ${o.ys[j]}H${r.l}`;segs.push([bus,o.ys[j],r.l,o.ys[j],own])});
    out.push(`<path d="${p}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round"/>`)};
@@ -486,19 +488,29 @@ function hLines(){
   GI.filter(o=>o.lk).forEach(o=>{
    const lk=o.lk,fwd=o.from===lk.a,pts=fwd?lk.pts:lk.pts.slice().reverse(),ex=lk.ends[o.from];
    const other=fwd?lk.b:lk.a,lo=lk.hd[o.from]+20,hi=lk.len-lk.hd[other]-20;
-   const bus0=o.kx-9,all=samples(pts,4,lk.len+10).filter(p=>p.vert&&p.cd>=10&&p.d>=lo&&p.d<=hi);
-   const rayOk=p=>{const x1=Math.min(p.x,bus0),x2=Math.max(p.x,bus0);
-    if(obst.some(r=>r.t-3<p.y&&r.b+3>p.y&&r.r+3>x1&&r.l-3<x2))return false;
-    if(hearts.some(h=>Math.abs(h[1]-p.y)<12&&h[0]>x1-8&&h[0]<x2+8))return false;
-    return !segs.some(s=>s[4]!=="L"+lk.key&&s[1]===s[3]&&Math.abs(s[1]-p.y)<6&&Math.max(s[0],s[2])>x1&&Math.min(s[0],s[2])<x2)};
-   let J=null;
+   const bus0=o.kx-9,ky=(Math.min(...o.ys)+Math.max(...o.ys))/2;
+   const between=samples(pts,4,lk.len+10).filter(p=>p.cd>=10&&p.d>=lo&&p.d<=hi);
+   /* every branch flows left to right: the dot must be LEFT of the children's line. On a vertical stretch the line leaves
+      sideways; on a horizontal stretch it first drops a few pixels toward the children, then goes right. */
+   const okAt=(p,dy)=>{
+    const y2=p.y+dy,x1=Math.min(p.x,bus0),x2=Math.max(p.x,bus0);
+    if(obst.some(r=>r.t-3<y2&&r.b+3>y2&&r.r+3>x1&&r.l-3<x2))return false;
+    if(dy&&obst.some(r=>r.l-3<p.x&&r.r+3>p.x&&r.t-3<Math.max(p.y,y2)&&r.b+3>Math.min(p.y,y2)))return false;
+    if(hearts.some(h=>Math.abs(h[1]-y2)<12&&h[0]>x1-8&&h[0]<x2+8))return false;
+    if(dy&&hearts.some(h=>Math.abs(h[0]-p.x)<12&&h[1]>Math.min(p.y,y2)-8&&h[1]<Math.max(p.y,y2)+8))return false;
+    return !segs.some(s=>s[4]!=="L"+lk.key&&s[1]===s[3]&&Math.abs(s[1]-y2)<6&&Math.max(s[0],s[2])>x1&&Math.min(s[0],s[2])<x2);};
+   const left=between.filter(p=>p.x<=bus0-14);
+   let J=null,jdy=0;
    for(const need of[17,13,9,5]){
-    J=all.find(p=>rayOk(p)&&clear(p.x,p.y,"L"+lk.key)>=need&&dots.every(d=>Math.hypot(d[0]-p.x,d[1]-p.y)>=18));
+    for(const p of left){
+     const dy=p.vert?0:(ky>=p.y?16:-16);
+     if(!p.vert&&p.cd<16)continue;
+     if(okAt(p,dy)&&clear(p.x,p.y,"L"+lk.key)>=need&&(!dy||clear(p.x,p.y+dy,"L"+lk.key)>=8)&&dots.every(d=>Math.hypot(d[0]-p.x,d[1]-p.y)>=18)){J=p;jdy=dy;break}}
     if(J)break}
-   if(!J)J=all.find(p=>rayOk(p))||samples(pts,4,lk.len+10).find(p=>p.d>=lo)||null;
+   if(!J){const v=between.filter(p=>p.vert);J=v.find(p=>okAt(p,0))||v[0]||between[0]||null;jdy=0}
    const jx=J?J.x:ex.jx,jy=J?J.y:ex.y;
    dots.push([jx,jy]);lk.used[o.from]=[jx,jy];
-   kidLine(o,jx,jy,lk.col,2.2)});
+   kidLine(o,jx,jy,lk.col,2.2,jdy)});
   LK.forEach(lk=>{
    const tgt=lk.ok?out:top;
    tgt.push(`<path d="M${lk.pts.map(p=>p[0]+" "+p[1]).join("L")}" fill="none" stroke="${lk.col}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"/>`);
