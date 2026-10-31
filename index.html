@@ -919,7 +919,7 @@ function horizHtml(T,pool){
    const o=P(id);
    const lab=t==="s"?"other / unlisted":"with "+esc(dispName(o));
    return`<div class="hgrp" data-from="${from}" data-other="${other}" data-gi="${gi}" data-multi="${multi?1:0}" data-heart="${t==="c"?1:0}">${multi?`<div class="hlab">${lab}</div>`:""}${g.kids.map(k=>`<div class="hkid">${render(k,true)}</div>`).join("")}</div>`}).join("")}</div></div>`}
- const cand=people.filter(hasKids).sort(byName);
+ const cand=pool.filter(hasKids).sort(byName);
  if(!whole&&!cand.includes(P(starts[0])))cand.unshift(P(starts[0]));
  const unlinked=whole?pool.filter(p=>!placed.has(p.id)):[];
  return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(this.value==='all'?'all':+this.value)"><option value="all" ${whole?"selected":""}>Whole tree (everyone)</option>${cand.map(p=>`<option value="${p.id}" ${!whole&&p.id===starts[0]?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select>
@@ -1074,7 +1074,7 @@ function vertHtml(T,pool,lr){
    if(!bad.length)break;
    bad.forEach(id=>hold.delete(id));
    if(!hold.size){out=run(hold);break}}}
- const cand=people.filter(hasKids).sort(byName);if(!whole&&!cand.includes(P(sv)))cand.unshift(P(sv));
+ const cand=pool.filter(hasKids).sort(byName);if(!whole&&!cand.includes(P(sv)))cand.unshift(P(sv));
  const body=out.body,left=depthN>=99&&whole?pool.filter(p=>!out.placed.has(p.id)):[];
  return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(this.value==='all'?'all':+this.value)"><option value="all" ${whole?"selected":""}>Whole tree (everyone)</option>${cand.map(p=>`<option value="${p.id}" ${!whole&&p.id===sv?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select><select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
  <div class="mut">Scroll sideways and down · tap a name for the full record · orange boxes = same person shown twice: the main box (men under their parents, women beside their husband) and a dashed ⇄ stub · tap the stub to jump to the main · tap the main to choose person page or stub</div>
@@ -1134,20 +1134,24 @@ function rec(p,full){
  const sub=[p.profession,p.current_location].filter(Boolean).join(" · ");
  return`<div class="mc ${full?"full":""}"><div class="mh"><div>
   ${full?`<div class="nm" style="font-size:1.25rem">${esc(dispName(p))}</div>`:`<a class="nm" href="#/person/${id}">${esc(dispName(p))}</a>`}
-  <span class="sub">#${id} · ${TL[p.tree]||""} · ${p.gender==="male"?"♂ Male":p.gender==="female"?"♀ Female":"⚠ Gender not set"}${p.kothram?" · 🕉 "+esc(p.kothram):""}</span>
+  <span class="sub">#${id} · ${TL[p.tree]||""}${gOn()?" · "+(p.gender==="male"?"♂ Male":p.gender==="female"?"♀ Female":"⚠ Gender not set"):""}${kOn()&&p.kothram?" · 🕉 "+esc(p.kothram):""}</span>
   ${per?`<div class="mut">${esc(per)}</div>`:""}${sub?`<div class="mut">${esc(sub)}</div>`:""}</div>
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
   ${ln("Spouse",spH)}${kidsH}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
   ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a> <a class="more" style="font-size:.85rem;font-weight:600;padding:4px 10px" href="javascript:toTreeLR(${id})" title="Show in left-to-right tree">🌳 Left-right tree</a>`}</div>`}
 
+/* gender / kothram are signed-in details: hide those filters (and the "not set" labels) when the data is not available */
+const gOn=()=>!!role&&(canEdit()||people.some(p=>p.gender));
+const kOn=()=>!!role&&(canEdit()||people.some(p=>p.kothram));
 let selMode=false;const sel=new Set();let gf="all",kf="all";
 function viewMembers(app){
+ if(!gOn())gf="all";if(!kOn())kf="all";
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
  <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}${canEdit()?`<span id="selb" class="chip ${selMode?"on":""}">☑ Select</span><span id="kothb" class="chip">🕉 Kothram</span>`:""}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
- <div class="chips" id="gchips">${[["all","All"],["male","♂ Male"],["female","♀ Female"],["none","⚠ Not set"]].map(([k,l])=>`<span class="chip ${gf===k?"on":""}" data-g="${k}" data-l="${l}">${l}</span>`).join("")}</div>
- <select id="kf" aria-label="Filter by kothram" style="margin:2px 0 8px"></select>
+ ${gOn()?`<div class="chips" id="gchips">${[["all","All"],["male","♂ Male"],["female","♀ Female"],["none","⚠ Not set"]].map(([k,l])=>`<span class="chip ${gf===k?"on":""}" data-g="${k}" data-l="${l}">${l}</span>`).join("")}</div>`:""}
+ ${kOn()?`<select id="kf" aria-label="Filter by kothram" style="margin:2px 0 8px"></select>`:""}
  <div id="list"></div>
  <div id="bulk" class="bulk" hidden><b id="bc"></b><button id="ball" class="alt">All shown</button><button id="bnone" class="alt">Clear</button><button id="bgo">Set status…</button></div>`;
  let shown=[];
@@ -1155,10 +1159,10 @@ function viewMembers(app){
  const draw=()=>{$("#qc").hidden=!q;const t=q.trim().toLowerCase();
   const gm=p=>p.gender==="male"?"male":p.gender==="female"?"female":"none";
   const tp=people.filter(p=>mf==="all"||p.tree===mf);
-  document.querySelectorAll(".chip[data-g]").forEach(c=>{const k=c.dataset.g;c.textContent=c.dataset.l+" ("+(k==="all"?tp.length:tp.filter(p=>gm(p)===k).length)+")";c.classList.toggle("on",gf===k)});
+  if(gOn())document.querySelectorAll(".chip[data-g]").forEach(c=>{const k=c.dataset.g;c.textContent=c.dataset.l+" ("+(k==="all"?tp.length:tp.filter(p=>gm(p)===k).length)+")";c.classList.toggle("on",gf===k)});
   const kc={};tp.forEach(p=>{const k=(p.kothram||"").trim()||"__none";kc[k]=(kc[k]||0)+1});
   if(kf!=="all"&&!kc[kf])kf="all";
-  $("#kf").innerHTML=`<option value="all">All kothrams (${tp.length})</option>`+Object.keys(kc).filter(k=>k!=="__none").sort((a,b)=>kc[b]-kc[a]||a.localeCompare(b)).map(k=>`<option value="${esc(k)}" ${kf===k?"selected":""}>${esc(k)} (${kc[k]})</option>`).join("")+(kc.__none?`<option value="__none" ${kf==="__none"?"selected":""}>⚠ Not set (${kc.__none})</option>`:"");
+  if(kOn())$("#kf").innerHTML=`<option value="all">All kothrams (${tp.length})</option>`+Object.keys(kc).filter(k=>k!=="__none").sort((a,b)=>kc[b]-kc[a]||a.localeCompare(b)).map(k=>`<option value="${esc(k)}" ${kf===k?"selected":""}>${esc(k)} (${kc[k]})</option>`).join("")+(kc.__none?`<option value="__none" ${kf==="__none"?"selected":""}>⚠ Not set (${kc.__none})</option>`:"");
   const km=p=>kf==="all"||(kf==="__none"?!(p.kothram||"").trim():(p.kothram||"").trim()===kf);
   const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(gf==="all"||gm(p)===gf)&&km(p)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
@@ -1168,7 +1172,7 @@ function viewMembers(app){
   bar()};
  $("#q").oninput=e=>{q=e.target.value;draw()};
  $("#qc").onclick=()=>{q="";$("#q").value="";$("#q").focus();draw()};
- $("#kf").onchange=e=>{kf=e.target.value;draw()};
+ if(kOn())$("#kf").onchange=e=>{kf=e.target.value;draw()};
  document.querySelectorAll(".chip[data-g]").forEach(c=>c.onclick=()=>{gf=c.dataset.g;draw()});
  document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  if(canEdit()){
