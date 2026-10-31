@@ -131,6 +131,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt .pc img{width:28px;height:28px}
 .vt .pc .n{font-size:.75rem;line-height:1.2}
 .vt .pc .p{font-size:.64rem}
+.vt .pc.vroot{width:auto;padding:6px 16px;background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700;font-size:.8rem;cursor:default}
 .vt .pc.hb{padding-left:21px;width:128px}
 .vt .pc .bn{left:2px;top:2px;transform:none;min-width:14px;height:14px;line-height:14px;padding:0 2px;font-size:.58rem}
 .vt .vref{border-style:dashed;font-style:italic;opacity:.85;font-size:.72rem;display:block;cursor:pointer;color:var(--ink)}
@@ -759,8 +760,10 @@ function vertHtml(T,pool){
    const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
     `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c,true)}</li>`;asChild.add(c.id);return unit(c,np,true)}).join("")}</ul></div>`);
    return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}</li>`}
-  let body="";
-  roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
+  let lis="",nr=0;
+  roots.forEach(r=>{if(!placed.has(r.id)){lis+=unit(r,[]);nr++}});
+  /* several separate branches: hang them all under one common top box so the whole tree is linked */
+  const body=!nr?"":nr>1?`<ul><li><div class="vu"><span class="vc"><span class="pc vroot">🌳 Family</span></span></div><div class="vks"><div class="vg" data-from="s"><ul>${lis}</ul></div></div></li></ul>`:`<ul>${lis}</ul>`;
   return{placed,asChild,body}}
  /* pass 1 finds who is reachable as somebody's child; then every woman whose husband is a child of his own parents
     gets her stub under her parents, and the couple (with her main box) is drawn under the husband's parents */
