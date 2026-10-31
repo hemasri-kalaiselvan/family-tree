@@ -121,7 +121,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vtw{overflow:auto;overscroll-behavior-x:contain;padding:12px 10px 18px;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px}
 .vtr{display:inline-flex;align-items:flex-start;gap:40px;vertical-align:top}
 .vt ul{padding-top:18px;position:relative;display:flex;justify-content:center;margin:0;list-style:none;padding-left:0}
-.vt li{position:relative;padding:18px 6px 0;text-align:center}
+.vt li{position:relative;padding:18px 6px 0;text-align:center;--ax:50%}
 .vt li::before,.vt li::after{content:'';position:absolute;top:0;height:18px;border-top:1px solid #9fb0cc}
 .vt li::before{left:0;width:var(--ax,50%)}
 .vt li::after{left:var(--ax,50%);right:0;border-left:1px solid #9fb0cc}
@@ -710,7 +710,7 @@ function vertHtml(T,pool){
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
- const isF=p=>p.gender==="female"||(!p.gender&&people.some(c=>c.mother_id===p.id));
+ const isF=p=>p.gender==="female"||(!p.gender&&(people.some(c=>c.mother_id===p.id)||spouseIds(p.id).some(i=>P(i)&&P(i).gender==="male")));
  const vc=p=>`<span class="vc" data-vid="${p.id}">${card(p,{nn:1})}</span>`;
  const vr=p=>`<span class="vc vstub" data-sid="${p.id}"><a class="pc vref" href="javascript:void(0)" onclick="vJump(${p.id})" title="Shown in another place - tap to jump">${esc(dispName(p))} <b>⇄</b></a></span>`;
  /* one drawing pass. hold = women who must only be a stub under their own parents (their main box sits beside the husband) */
@@ -735,7 +735,9 @@ function vertHtml(T,pool){
     gets her stub under her parents, and the couple (with her main box) is drawn under the husband's parents */
  let out=run(new Set());
  const hold=new Set();
- people.forEach(k=>{if(hasPar(k)&&isF(k)&&spouseIds(k.id).map(P).some(h=>h&&!isF(h)&&hasPar(h)&&out.asChild.has(h.id)))hold.add(k.id)});
+ /* the husband is "under his parents" when either of his parents is drawn in this pass (his box is then listed in their children) */
+ const underParents=h=>hasPar(h)&&(out.placed.has(h.father_id)||out.placed.has(h.mother_id));
+ people.forEach(k=>{if(hasPar(k)&&isF(k)&&spouseIds(k.id).map(P).some(h=>h&&!isF(h)&&underParents(h)))hold.add(k.id)});
  if(hold.size){
   for(let it=0;it<4;it++){
    out=run(hold);
