@@ -142,6 +142,9 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .bnr .br{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:.88rem;border-top:1px solid #f1d9c4}
 .bnr .bt+.br{border-top:0}
 .bnr .bx{flex:1;min-width:0;overflow-wrap:anywhere}
+.bnr .bx .mut{display:block;font-size:.8rem}
+.bnr .bwh{flex:none;display:flex;flex-direction:column;align-items:flex-end;white-space:nowrap;line-height:1.25}
+.bnr .bwh .mut{font-size:.75rem}
 .bnr .bw{white-space:nowrap;color:var(--pri);font-size:.8rem}
 .bnr .br.td .bw{color:#c2185b}
 .bnr>.lk{display:inline-block;margin-top:4px;font-size:.85rem}
@@ -154,6 +157,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .evw{flex:none;font-size:.78rem;color:#c2185b;font-weight:600;white-space:nowrap}
 .zfw.zfs{position:fixed;inset:0;z-index:60;background:var(--bg);padding:8px;overflow:hidden}
 .zfs .zst{position:static}
+.zfs .zw{overscroll-behavior:contain}
 .zbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0}
 .zbar button{padding:4px 14px;min-width:42px}
 .zw{overflow:auto;height:calc(100vh - 220px);min-height:260px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain;touch-action:pan-x pan-y}
@@ -179,7 +183,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 @keyframes vpl{50%{box-shadow:0 0 0 10px rgba(232,113,10,.55)}}
 .vt .vc.vp .pc{animation:vpl 1s 3}
 .vt .vc.vdup .pc{border-color:#e8710a;box-shadow:0 0 0 1px #e8710a;background:#fff4e8}
-#vpop{position:fixed;z-index:40;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px #0004;padding:8px;display:flex;flex-direction:column;gap:6px;min-width:190px;max-width:80vw}
+#vpop{position:fixed;z-index:80;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px #0004;padding:8px;display:flex;flex-direction:column;gap:6px;min-width:190px;max-width:80vw}
 #vpop .vpn{font-weight:600;font-size:.85rem;color:var(--mut);padding:0 2px}
 #vpop .btn,#vpop button{text-align:center;width:100%}
 </style></head><body>
@@ -378,6 +382,7 @@ function evParts(e,dt){
  if(e.k==="d")return{icon:"🕯️",title:nm1,note:"Memorial"+(n?" · "+n+" years":"")};
  return e.late?{icon:"🎂",title:nm1,note:"Birth anniversary"}:{icon:"🎂",title:nm1,note:"Birthday"+(n?" · turns "+n:"")}}
 const whenTxt=n=>n===0?"Today":n===1?"Tomorrow":"in "+n+" days";
+const sdate=d=>["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]+", "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]+" "+d.getDate();
 const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 /* banner: birthdays (living), weddings, memorials (English date of death) and thivasam (Tamil month/paksha/thithi) that are today or coming in the next 30 days; label = all / vetri / rajmohan */
 function bannerHtml(label){
@@ -389,7 +394,7 @@ function bannerHtml(label){
  if(!soon)show=[list[0]];
  const top=show.slice(0,5),more=show.length-top.length;
  const rows=top.map(x=>{const q=evParts(x.e,x.dt);
-  return`<a class="br${x.n===0?" td":""}" href="#/person/${x.e.p[0]}"><span>${q.icon}</span><span class="bx"><b>${esc(q.title)}</b> <span class="mut">${esc(q.note)} · ${ymd(x.dt)}</span></span><b class="bw">${whenTxt(x.n)}</b></a>`}).join("");
+  return`<a class="br${x.n===0?" td":""}" href="#/person/${x.e.p[0]}"><span>${q.icon}</span><span class="bx"><b>${esc(q.title)}</b><span class="mut">${esc(q.note)}</span></span><span class="bwh"><b class="bw">${whenTxt(x.n)}</b><span class="mut">${sdate(x.dt)}</span></span></a>`}).join("");
  return`<div class="bnr"><div class="bt">🎉 ${soon?"Today &amp; upcoming":"Next up"}</div>${rows}<a class="lk" href="#/events">${more>0?"+"+more+" more · ":""}All events ›</a></div>`}
 let evf="all";
 function viewEvents(app){
@@ -475,10 +480,7 @@ function zoomWrap(sel){
  const sizeZw=()=>{const full=fw.classList.contains('zfs'),hh=full?0:((document.querySelector('header')||{}).offsetHeight||52);if(!full)document.documentElement.style.setProperty('--hh',hh+'px');zw.style.height=Math.max(220,innerHeight-hh-stk.offsetHeight-(full?20:12))+'px'};
  const fb=bar.querySelector('[data-z="full"]');
  const setFS=on=>{fw.classList.toggle('zfs',on);document.body.style.overflow=on?'hidden':'';fb.textContent=on?'✕':'⛶';fb.title=on?'Exit full screen':'Full screen';
-  if(on){try{const r=fw.requestFullscreen&&fw.requestFullscreen();if(r&&r.catch)r.catch(()=>{})}catch(e){}}
-  else if(document.fullscreenElement&&document.exitFullscreen){try{document.exitFullscreen().catch(()=>{})}catch(e){}}
   sizeZw();if(on)window.scrollTo(0,0)};
- document.onfullscreenchange=()=>{if(!document.fullscreenElement&&fw.classList.contains('zfs'))setFS(false)};
  sizeZw();window.zResize=sizeZw;
  zw.appendChild(zs);zs.appendChild(zi);zi.appendChild(el);
  const Z={s:1,touched:false};
