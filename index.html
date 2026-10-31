@@ -131,6 +131,9 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt li:last-child::before{border-right:1px solid #9fb0cc;border-radius:0 6px 0 0}
 .vt li:first-child::after{border-radius:6px 0 0 0}
 .vt ul ul::before{content:'';position:absolute;top:0;left:50%;height:18px;border-left:1px solid #9fb0cc}
+.vt li.oc:only-child{padding-top:18px}
+.vt li.oc:only-child::before{display:block;left:var(--bl);right:auto;width:var(--bw);height:0;border:0;border-top:1px solid #9fb0cc;border-radius:0}
+.vt li.oc:only-child::after{display:block;left:var(--ax);right:auto;width:0;height:18px;border:0;border-left:1px solid #9fb0cc;border-radius:0}
 .vu{display:inline-flex;align-items:center;gap:3px;position:relative;z-index:1}
 .vw{color:#c2185b;font-size:.8rem}
 .vt .pc{min-width:0;width:116px;padding:4px 6px;gap:5px;text-align:left}
@@ -295,7 +298,7 @@ function viewTree(app,T){
  const L=[["tree","Outline"],["hour","Hourglass"],["horiz","Horizontal"],["vert","Top-down"]];
  app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
- const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):horizHtml(T,pool);if(lay==="horiz")hLines();if(lay==="vert"){vMark();vAnch()}};
+ const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):horizHtml(T,pool);if(lay==="horiz")hLines();if(lay==="vert"){vMark();vAnch();document.fonts&&document.fonts.ready.then(()=>{if($(".vt"))vAnch()})}};
  window.drawLay=draw;
  document.querySelectorAll(".chip[data-l]").forEach(c=>c.onclick=()=>{lay=c.dataset.l;document.querySelectorAll(".chip[data-l]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  draw()}
@@ -672,10 +675,18 @@ function horizHtml(T,pool){
 /* ---- layout 4: top-down tree ---- */
 /* the line from the parents lands on the child's own card (not on the heart between the child and the partner) */
 function vAnch(){
- document.querySelectorAll('.vt li').forEach(li=>{
-  const c=li.querySelector(':scope>.vu>.vc');if(!c)return;
-  const r=c.getBoundingClientRect(),l=li.getBoundingClientRect();
-  if(l.width)li.style.setProperty('--ax',(r.left+r.width/2-l.left)+'px')})}
+ document.querySelectorAll('.vt li').forEach(li=>{li.classList.remove('oc');['--ax','--bl','--bw'].forEach(k=>li.style.removeProperty(k))});
+ document.querySelectorAll('.vt li>ul').forEach(ul=>{
+  const ur=ul.getBoundingClientRect();if(!ur.width)return;
+  const cx=ur.left+ur.width/2,lis=[...ul.children].filter(x=>x.tagName==='LI');
+  lis.forEach(li=>{
+   const c=li.querySelector(':scope>.vu>.vc')||li.querySelector(':scope>.vc');if(!c)return;
+   const r=c.getBoundingClientRect(),l=li.getBoundingClientRect();if(!l.width)return;
+   let a=r.left+r.width/2;
+   if(Math.abs(a-cx)<=12)a=cx; /* almost straight below the parents: make it one clean line */
+   li.style.setProperty('--ax',(a-l.left)+'px');
+   if(lis.length===1&&Math.abs(a-cx)>0.5){ /* only child: step sideways, then drop onto the child's own box */
+    li.classList.add('oc');li.style.setProperty('--bl',(Math.min(a,cx)-l.left)+'px');li.style.setProperty('--bw',Math.abs(a-cx)+'px')}})})}
 function vFlash(e){if(!e)return;
  document.querySelectorAll('.vt .vc.vp').forEach(x=>x.classList.remove('vp'));
  e.classList.add('vp');e.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
