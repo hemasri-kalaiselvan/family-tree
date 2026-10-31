@@ -69,8 +69,8 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .mc.full .ph{width:84px;height:84px;border-radius:14px;font-size:2.4rem}
 .ml{margin-top:2px}.ml b{color:var(--mut);font-weight:600;font-size:.8rem}
 .lk{color:var(--pri);font-weight:600}
-.chips{display:flex;gap:6px;margin:8px 0}
-.chip{padding:5px 14px;border-radius:99px;background:#e7eef8;color:var(--pri);border:1px solid #b8c8e2;cursor:pointer;font-size:.9rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{white-space:nowrap;padding:5px 14px;border-radius:99px;background:#e7eef8;color:var(--pri);border:1px solid #b8c8e2;cursor:pointer;font-size:.9rem}
 .chip.on{background:var(--pri);color:#fff}
 .more{display:inline-block;color:var(--pri);font-weight:700;font-size:1.1rem;line-height:1;padding:2px 8px;background:#e7eef8;border-radius:6px;margin-top:4px}
 .mc details>summary{display:inline-block;color:var(--pri);font-weight:700;font-size:1.1rem;line-height:1;cursor:pointer;padding:2px 8px;background:#e7eef8;border-radius:6px;margin-top:4px}
@@ -131,6 +131,16 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt .pc img{width:28px;height:28px}
 .vt .pc .n{font-size:.75rem;line-height:1.2}
 .vt .pc .p{font-size:.64rem}
+.zbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 6px}
+.zbar button{padding:4px 14px;min-width:42px}
+.zw{overflow:auto;height:calc(100vh - 260px);min-height:320px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain;touch-action:pan-x pan-y}
+.zs{position:relative}
+.zi{position:absolute;left:0;top:0;transform-origin:0 0}
+.zi .hwrap,.zi .vtw{overflow:visible;width:max-content;margin:0;border:0;border-radius:0}
+.pc.pdup{border-color:#e8710a;box-shadow:0 0 0 1px #e8710a;background:#fff4e8}
+.couple .pc.vref{border-style:dashed;font-style:italic;opacity:.85;cursor:pointer;color:var(--ink);display:block}
+.couple .pc.vref b{color:#e8710a}
+.couple .pc.vp{animation:vpl 1s 3}
 .vt .pc.hb{padding-left:21px;width:128px}
 /* left-to-right layout */
 .vt.lr .vtr{flex-direction:column;align-items:flex-start;gap:30px}
@@ -257,18 +267,18 @@ history.scrollRestoration="manual";
 const SV={};
 const hk=u=>{try{return new URL(u).hash||"#/"}catch(e){return"#/"}};
 const canRest=h=>/^#\/(vetri|raj|members)?$/.test(h);
-const sbox=()=>[...document.querySelectorAll(".vtw,.hwrap")];
+const sbox=()=>[...document.querySelectorAll(".vtw,.hwrap,.zw")];
 window.addEventListener("hashchange",e=>{
  const from=hk(e.oldURL),to=hk(e.newURL);
- if(canRest(from))SV[from]={y:scrollY,w:sbox().map(el=>[el.scrollLeft,el.scrollTop])};
+ if(canRest(from))SV[from]={y:scrollY,zs:window.curZ?window.curZ.s:null,w:sbox().map(el=>[el.scrollLeft,el.scrollTop])};
  renderNav();route();
  const s=SV[to];
- if(s&&canRest(to)){sbox().forEach((el,i)=>{if(s.w[i]){el.scrollLeft=s.w[i][0];el.scrollTop=s.w[i][1]}});window.scrollTo(0,s.y)}
+ if(s&&canRest(to)){if(s.zs&&window.curZ)window.curZ.set(s.zs);sbox().forEach((el,i)=>{if(s.w[i]){el.scrollLeft=s.w[i][0];el.scrollTop=s.w[i][1]}});window.scrollTo(0,s.y)}
  else window.scrollTo(0,0)});
 $("#who").onclick=()=>{location.hash="#/login"};
 
 function route(){
- document.body.classList.remove("bulkon");if(!/^#\/members/.test(location.hash)){selMode=false;sel.clear()}
+ window.curZ=null;document.body.classList.remove("bulkon");if(!/^#\/members/.test(location.hash)){selMode=false;sel.clear()}
  if(/error_description=/.test(location.hash)){const m=decodeURIComponent((location.hash.match(/error_description=([^&]*)/)[1]||"").replace(/\+/g," "));$("#app").innerHTML=`<div class="status warn">Sign-in failed: ${esc(m)}<br>Request a new link from 👤 and open it right away.</div>`;return}
  const [,a,b]=(location.hash.slice(1)||"/").split("/");
  const app=$("#app");
@@ -296,34 +306,123 @@ const hasPar=p=>p.father_id||p.mother_id;
 function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
- const L=[["tree","Outline"],["hour","Hourglass"],["horiz","Horizontal"],["vert","Top-down"],["lrt","Left-right"]];
+ const L=[["lrt","Left-right"],["vert","Top-down"],["hour","Hourglass"],["tree","Outline"],["horiz","Horizontal"]];
  app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
- const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):lay==="lrt"?vertHtml(T,pool,true):horizHtml(T,pool);if(lay==="horiz")hLines();if(lay==="vert"||lay==="lrt"){const va=lay==="lrt"?vAnchH:vAnch;vMark();va();document.fonts&&document.fonts.ready.then(()=>{if($(".vt"))va()})}};
+ const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):lay==="lrt"?vertHtml(T,pool,true):horizHtml(T,pool);window.curZ=null;if(lay==="horiz"){hLines();zoomWrap(".hwrap")}if(lay==="tree")pDup();if(lay==="vert"||lay==="lrt"){const va=lay==="lrt"?vAnchH:vAnch;vMark();va();zoomWrap(".vtw");document.fonts&&document.fonts.ready.then(()=>{if($(".vt")){const z=$(".zi"),t=z?z.style.transform:"";if(z)z.style.transform="none";va();if(z)z.style.transform=t;if(window.curZ)window.curZ.refit()}})}};
  window.drawLay=draw;
  document.querySelectorAll(".chip[data-l]").forEach(c=>c.onclick=()=>{lay=c.dataset.l;document.querySelectorAll(".chip[data-l]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  draw()}
 
+/* outline: a person shown twice (main box beside the husband + stub under her own parents) is orange in both places */
+function pDup(){
+ document.querySelectorAll('#lb .couple a.vref[data-sid]').forEach(st=>{
+  st.classList.add('pdup');
+  const m=document.querySelector('#lb .couple a.pc[data-vid="'+st.dataset.sid+'"]');if(m)m.classList.add('pdup')})}
+function oFlash(e){if(!e)return;
+ let d=e.closest('details');while(d){d.open=true;d=d.parentElement.closest('details')}
+ document.querySelectorAll('#lb .pc.vp').forEach(x=>x.classList.remove('vp'));
+ e.classList.add('vp');e.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
+ setTimeout(()=>e.classList.remove('vp'),3500)}
+function oJump(id){oFlash(document.querySelector('#lb .couple a.pc[data-vid="'+id+'"]'))}
+/* tapping a main box that has a stub: choose person page or stub */
+function oClick(e){
+ const a=e.target.closest&&e.target.closest('#lb .couple a.pc[data-vid].pdup');
+ if(!a)return;
+ e.preventDefault();vPopClose();
+ const id=+a.dataset.vid,pp=P(id);
+ const stubs=[...document.querySelectorAll('#lb .couple a.vref[data-sid="'+id+'"]')];
+ const d=document.createElement('div');d.id='vpop';
+ d.innerHTML=`<div class="vpn">${esc(pp?dispName(pp):"")}</div><a class="btn" href="#/person/${id}">Open person page ›</a>`+
+  stubs.map((x,i)=>`<button class="alt" data-i="${i}">Go to stub ⇄${stubs.length>1?" "+(i+1):""}</button>`).join("");
+ document.body.appendChild(d);
+ const r=a.getBoundingClientRect(),w=d.offsetWidth,h=d.offsetHeight;
+ d.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+"px";
+ d.style.top=(r.bottom+6+h>innerHeight?Math.max(8,r.top-h-6):r.bottom+6)+"px";
+ d.querySelector("a").onclick=vPopClose;
+ d.querySelectorAll("button").forEach(b=>b.onclick=()=>{vPopClose();oFlash(stubs[+b.dataset.i])})}
+document.addEventListener("click",oClick);
+/* zoom box for the Horizontal, Top-down and Left-right trees: opens fitted so the whole tree is visible; + / - / pinch / Ctrl+wheel to zoom */
+function zoomWrap(sel){
+ const el=document.querySelector('#lb '+sel);if(!el)return;
+ const bar=document.createElement('div');bar.className='zbar';
+ bar.innerHTML='<button class="alt" data-z="out">−</button><button class="alt" data-z="fit">Fit</button><button class="alt" data-z="in">+</button><span class="mut" id="zp"></span><span class="mut">· pinch or use + / − to zoom</span>';
+ const zw=document.createElement('div');zw.className='zw';
+ const zs=document.createElement('div');zs.className='zs';
+ const zi=document.createElement('div');zi.className='zi';
+ el.parentNode.insertBefore(bar,el);el.parentNode.insertBefore(zw,el);
+ zw.appendChild(zs);zs.appendChild(zi);zi.appendChild(el);
+ const Z={s:1,touched:false};
+ const size=()=>({w:Math.ceil(el.scrollWidth),h:Math.ceil(el.scrollHeight)});
+ const apply=(ns,ax,ay)=>{
+  ns=Math.max(.03,Math.min(2.5,ns));
+  const x=ax==null?zw.clientWidth/2:ax,y=ay==null?zw.clientHeight/2:ay;
+  const cx=(zw.scrollLeft+x)/Z.s,cy=(zw.scrollTop+y)/Z.s;
+  Z.s=ns;const d=size();
+  zi.style.transform='scale('+ns+')';
+  zs.style.width=Math.ceil(d.w*ns)+'px';zs.style.height=Math.ceil(d.h*ns)+'px';
+  zw.scrollLeft=cx*ns-x;zw.scrollTop=cy*ns-y;
+  const zp=document.getElementById('zp');if(zp)zp.textContent=Math.round(ns*100)+'%'};
+ Z.set=v=>{Z.touched=true;apply(v)};
+ Z.fit=()=>{const d=size();apply(Math.min(zw.clientWidth/d.w,zw.clientHeight/d.h,1));zw.scrollLeft=0;zw.scrollTop=0};
+ Z.refit=()=>{if(!Z.touched)Z.fit()};
+ bar.onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.z==='fit'){Z.touched=false;Z.fit()}
+  else{Z.touched=true;apply(Z.s*(b.dataset.z==='in'?1.25:0.8))}};
+ zw.addEventListener('wheel',e=>{if(!e.ctrlKey)return;e.preventDefault();const r=zw.getBoundingClientRect();
+  Z.touched=true;apply(Z.s*(e.deltaY<0?1.1:0.9),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+ let d0=0,s0=1;
+ const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+ zw.addEventListener('touchstart',e=>{if(e.touches.length===2){d0=dist(e.touches);s0=Z.s}},{passive:true});
+ zw.addEventListener('touchmove',e=>{if(e.touches.length!==2||!d0)return;e.preventDefault();
+  const r=zw.getBoundingClientRect(),t=e.touches;
+  Z.touched=true;apply(s0*dist(t)/d0,(t[0].clientX+t[1].clientX)/2-r.left,(t[0].clientY+t[1].clientY)/2-r.top)},{passive:false});
+ zw.addEventListener('touchend',e=>{if(e.touches.length<2)d0=0});
+ window.curZ=Z;
+ Z.fit()}
 /* ---- layout 1: indented tree ---- */
+/* same idea as the top-down tree: a man is drawn once (under his parents); a woman who has her own parents is drawn
+   twice - a dashed stub under her parents (no branch below it) and her main box beside her husband (with the children) */
 function treeHtml(T,pool){
- const shown=new Set();
- function unit(p,depth,path){
-  const sps=spouseIds(p.id).map(P).filter(Boolean);
-  const ids=[p.id,...sps.map(s=>s.id)];
-  const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
-  ids.forEach(i=>shown.add(i));
-  const np=path.concat(ids);
-  const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-  const couple=`<div class="couple"><span class="tg">${kids.length?"▸":""}</span>${cardNN(p)}${sps.map(s=>`<span class="heart">♥</span>${cardNN(s)}`).join("")}</div>`;
-  if(!kids.length)return`<div>${couple}</div>`;
-  return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kids.map(k=>unit(k,depth+1,np)).join("")}</div></details>`}
+ const isF=p=>p.gender==="female"||(!p.gender&&(people.some(c=>c.mother_id===p.id)||spouseIds(p.id).some(i=>P(i)&&P(i).gender==="male")));
+ const mainCard=p=>cardNN(p).replace('<a class="pc','<a data-vid="'+p.id+'" class="pc');
+ const stubCard=p=>`<a class="pc vref" data-sid="${p.id}" href="javascript:void(0)" onclick="oJump(${p.id})" title="Shown in another place - tap to jump">${esc(dispName(p))} <b>⇄</b></a>`;
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const isolated=p=>!hasPar(p)&&!spouseIds(p.id).length&&!childrenOf(p.id).length;
  const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&!isolated(p)).sort((a,b)=>a.id-b.id);
- let html="";
- roots.forEach(r=>{if(!shown.has(r.id))html+=`<div class="sec">${unit(r,0,[])}</div>`});
- const others=pool.filter(isolated);
- return`<div class="mut">Tap a name for the full record · tap ▸ to expand</div>
+ function run(hold){
+  const placed=new Set();
+  function unit(p,depth,path){
+   placed.add(p.id);
+   const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
+   const fresh=all.filter(s=>!placed.has(s.id));
+   fresh.forEach(s=>placed.add(s.id));
+   const ids=[p.id,...fresh.map(s=>s.id)];
+   const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
+   const np=path.concat(ids);
+   const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
+   const couple=`<div class="couple"><span class="tg">${kids.length?"▸":""}</span>${mainCard(p)}${all.map(s=>`<span class="heart">♥</span>${fresh.includes(s)?mainCard(s):stubCard(s)}`).join("")}</div>`;
+   if(!kids.length)return`<div>${couple}</div>`;
+   const kh=kids.map(k=>{
+    if(placed.has(k.id)||hold.has(k.id))return`<div><div class="couple"><span class="tg"></span>${stubCard(k)}</div></div>`;
+    return unit(k,depth+1,np)}).join("");
+   return`<details class="tw" ${depth<2?"open":""}><summary>${couple}</summary><div class="kids">${kh}</div></details>`}
+  let html="";
+  roots.forEach(r=>{if(!placed.has(r.id))html+=`<div class="sec">${unit(r,0,[])}</div>`});
+  return{placed,html}}
+ let out=run(new Set());
+ const hold=new Set();
+ const underParents=h=>hasPar(h)&&(out.placed.has(h.father_id)||out.placed.has(h.mother_id));
+ people.forEach(k=>{if(hasPar(k)&&isF(k)&&spouseIds(k.id).map(P).some(h=>h&&!isF(h)&&underParents(h)))hold.add(k.id)});
+ if(hold.size){
+  for(let it=0;it<4;it++){
+   out=run(hold);
+   const bad=[...hold].filter(id=>!out.placed.has(id));
+   if(!bad.length)break;
+   bad.forEach(id=>hold.delete(id));
+   if(!hold.size){out=run(hold);break}}}
+ const html=out.html,others=pool.filter(isolated);
+ return`<div class="mut">Tap a name for the full record · tap ▸ to expand · orange boxes = same person shown twice: the main box (men under their parents, women beside their husband) and a dashed ⇄ stub · tap the stub to jump to the main · tap the main to choose person page or stub</div>
  <div class="tools"><button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=true)">Expand all</button>
  <button class="alt" onclick="document.querySelectorAll('.tw').forEach(d=>d.open=false)">Collapse all</button></div>
  ${html||'<div class="status">No people yet.</div>'}
@@ -428,7 +527,7 @@ function hRoute(S,E,obst,segs,W,H,zones){
 function hLines(){
  const w=document.querySelector(".hwrap");if(!w)return;
  let busy=0,sig="";
- const draw=()=>{
+ const draw0=()=>{
   busy=0;
   const root=w.querySelector(":scope > .hroots");if(!root)return;
   const nsig=root.offsetWidth+"x"+root.offsetHeight+"|"+w.clientWidth;
@@ -563,6 +662,7 @@ function hLines(){
   const svg=cl=>`<svg class="hsv ${cl}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
   w.insertAdjacentHTML("afterbegin",svg("")+out.join("")+"</svg>");
   if(top.length)w.insertAdjacentHTML("beforeend",svg("tp")+top.join("")+"</svg>")};
+ const draw=()=>{const z=document.querySelector(".zi"),t=z?z.style.transform:"";if(z)z.style.transform="none";try{draw0()}finally{if(z)z.style.transform=t}};
  const sched=()=>{if(busy)return;busy=1;setTimeout(()=>requestAnimationFrame(draw),150)};
  requestAnimationFrame(draw);
  if(hRO)hRO.disconnect();
