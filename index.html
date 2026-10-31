@@ -779,7 +779,7 @@ function vertHtml(T,pool,lr){
  /* one drawing pass. hold = women who must only be a stub under their own parents (their main box sits beside the husband) */
  function run(hold){
   const placed=new Set(),asChild=new Set();
-  function unit(p,path,isKid){
+  function unit(p,path,isKid,d){
    placed.add(p.id);
    const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
    const fresh=all.filter(s=>!placed.has(s.id));
@@ -789,17 +789,18 @@ function vertHtml(T,pool,lr){
    const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort(cmp);
    /* children are grouped by their other parent, so with several wives each wife's children get their own line */
    const gs=new Map();
-   kids.forEach(c=>{
+   const cut=d>=depthN&&kids.length>0;   /* level filter: stop here and just show how many children are hidden */
+   (cut?[]:kids).forEach(c=>{
     const sp=all.find(s=>s.id===c.father_id||s.id===c.mother_id);
     const k=sp?String(sp.id):(all.length===1?String(all[0].id):"s");
     if(!gs.has(k))gs.set(k,[]);gs.get(k).push(c)});
    const ord=k=>k==="s"?-1:all.findIndex(s=>String(s.id)===k);
    const head=`<div class="vu">${vc(p,isKid)}${all.map(s=>`<span class="vw" data-h="${s.id}">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
    const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
-    `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c,true)}</li>`;asChild.add(c.id);return unit(c,np,true)}).join("")}</ul></div>`);
-   return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}</li>`}
+    `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c,true)}</li>`;asChild.add(c.id);return unit(c,np,true,d+1)}).join("")}</ul></div>`);
+   return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}${cut?`<div class="hmore">+${kids.length} ${kids.length>1?"children":"child"}</div>`:""}</li>`}
   let body="";
-  roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[])}</ul>`});
+  roots.forEach(r=>{if(!placed.has(r.id))body+=`<ul>${unit(r,[],false,1)}</ul>`});
   return{placed,asChild,body}}
  /* pass 1 finds who is reachable as somebody's child; then every woman whose husband is a child of his own parents
     gets her stub under her parents, and the couple (with her main box) is drawn under the husband's parents */
@@ -815,8 +816,9 @@ function vertHtml(T,pool,lr){
    if(!bad.length)break;
    bad.forEach(id=>hold.delete(id));
    if(!hold.size){out=run(hold);break}}}
- const body=out.body,left=pool.filter(p=>!out.placed.has(p.id));
- return`<div class="mut">Scroll sideways and down · tap a name for the full record · orange boxes = same person shown twice: the main box (men under their parents, women beside their husband) and a dashed ⇄ stub · tap the stub to jump to the main · tap the main to choose person page or stub</div>
+ const body=out.body,left=depthN>=99?pool.filter(p=>!out.placed.has(p.id)):[];
+ return`<div class="tools"><select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
+ <div class="mut">Scroll sideways and down · tap a name for the full record · orange boxes = same person shown twice: the main box (men under their parents, women beside their husband) and a dashed ⇄ stub · tap the stub to jump to the main · tap the main to choose person page or stub</div>
  <div class="vtw vt${lr?" lr":""}"><div class="vtr">${body||'<div class="status">No families linked yet.</div>'}</div></div>
  ${left.length?`<details class="sec"><summary><b>Not yet linked (${left.length})</b></summary><div class="grid" style="margin-top:8px">${left.map(cardNN).join("")}</div></details>`:""}`}
 
