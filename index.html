@@ -131,9 +131,11 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt .pc img{width:28px;height:28px}
 .vt .pc .n{font-size:.75rem;line-height:1.2}
 .vt .pc .p{font-size:.64rem}
-.zbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 6px}
+.zst{position:sticky;top:var(--hh,52px);z-index:9;background:var(--bg);padding:6px 0}
+.zst .tools{margin:0 0 6px}
+.zbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0}
 .zbar button{padding:4px 14px;min-width:42px}
-.zw{overflow:auto;height:calc(100vh - 260px);min-height:320px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain;touch-action:pan-x pan-y}
+.zw{overflow:auto;height:calc(100vh - 220px);min-height:260px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain;touch-action:pan-x pan-y}
 .zs{position:relative}
 .zi{position:absolute;left:0;top:0;transform-origin:0 0}
 .zi .hwrap,.zi .vtw{overflow:visible;width:max-content;margin:0;border:0;border-radius:0}
@@ -345,12 +347,16 @@ document.addEventListener("click",oClick);
 /* zoom box for the Horizontal, Top-down and Left-right trees: opens at 70% (Fit button shows the whole tree); + / - / pinch / Ctrl+wheel to zoom */
 function zoomWrap(sel){
  const el=document.querySelector('#lb '+sel);if(!el)return;
+ const tools=document.querySelector('#lb .tools');
+ const stk=document.createElement('div');stk.className='zst';
  const bar=document.createElement('div');bar.className='zbar';
- bar.innerHTML='<button class="alt" data-z="out">−</button><button class="alt" data-z="fit">Fit</button><button class="alt" data-z="in">+</button><span class="mut" id="zp"></span><span class="mut">· pinch or use + / − to zoom</span>';
+ bar.innerHTML='<button class="alt" data-z="out">−</button><button class="alt" data-z="fit">Fit</button><button class="alt" data-z="in">+</button><span class="mut" id="zp"></span>';
  const zw=document.createElement('div');zw.className='zw';
  const zs=document.createElement('div');zs.className='zs';
  const zi=document.createElement('div');zi.className='zi';
- el.parentNode.insertBefore(bar,el);el.parentNode.insertBefore(zw,el);
+ el.parentNode.insertBefore(stk,el);if(tools)stk.appendChild(tools);stk.appendChild(bar);el.parentNode.insertBefore(zw,el);
+ const sizeZw=()=>{const hh=(document.querySelector('header')||{}).offsetHeight||52;document.documentElement.style.setProperty('--hh',hh+'px');zw.style.height=Math.max(260,innerHeight-hh-stk.offsetHeight-12)+'px'};
+ sizeZw();window.zResize=sizeZw;
  zw.appendChild(zs);zs.appendChild(zi);zi.appendChild(el);
  const Z={s:1,touched:false};
  const size=()=>({w:Math.ceil(el.scrollWidth),h:Math.ceil(el.scrollHeight)});
@@ -381,6 +387,7 @@ function zoomWrap(sel){
  zw.addEventListener('touchend',e=>{if(e.touches.length<2)d0=0});
  window.curZ=Z;
  Z.def()}
+window.addEventListener('resize',()=>{window.zResize&&window.zResize()});
 /* ---- layout 1: indented tree ---- */
 /* same idea as the top-down tree: a man is drawn once (under his parents); a woman who has her own parents is drawn
    twice - a dashed stub under her parents (no branch below it) and her main box beside her husband (with the children) */
@@ -873,7 +880,9 @@ function vertHtml(T,pool,lr){
  if(!pool.length)return'<div class="status">No people yet.</div>';
  const inlaw=p=>!hasPar(p)&&spouseIds(p.id).some(s=>P(s)&&P(s).tree===T&&hasPar(P(s)));
  const hasKids=p=>childrenOf(p.id).length>0||spouseIds(p.id).some(s=>childrenOf(s).length>0);
- const roots=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
+ const roots0=pool.filter(p=>!hasPar(p)&&!inlaw(p)&&hasKids(p)).sort((a,b)=>a.id-b.id);
+ const sv=st[T],whole=sv===undefined||sv==="all"||!P(sv);
+ const roots=whole?roots0:[P(sv)];
  const isF=p=>p.gender==="female"||(!p.gender&&(people.some(c=>c.mother_id===p.id)||spouseIds(p.id).some(i=>P(i)&&P(i).gender==="male")));
  const vc=(p,kid)=>`<span class="vc" data-vid="${p.id}">${card(p,kid&&siblingsOf(p).length?undefined:{nn:1})}</span>`;
  const vr=(p,kid)=>{const num=kid&&bo(p)!==null&&siblingsOf(p).length>0;return`<span class="vc vstub" data-sid="${p.id}"><a class="pc vref${num?" hb":""}" href="javascript:void(0)" onclick="vJump(${p.id})" title="Shown in another place - tap to jump">${num?`<span class="bn" title="Birth order">${esc(p.birth_order)}</span>`:""}${esc(dispName(p))} <b>⇄</b></a></span>`};
@@ -917,8 +926,9 @@ function vertHtml(T,pool,lr){
    if(!bad.length)break;
    bad.forEach(id=>hold.delete(id));
    if(!hold.size){out=run(hold);break}}}
- const body=out.body,left=depthN>=99?pool.filter(p=>!out.placed.has(p.id)):[];
- return`<div class="tools"><select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
+ const cand=people.filter(hasKids).sort(byName);if(!whole&&!cand.includes(P(sv)))cand.unshift(P(sv));
+ const body=out.body,left=depthN>=99&&whole?pool.filter(p=>!out.placed.has(p.id)):[];
+ return`<div class="tools"><select style="flex:1;min-width:0" onchange="hstart(this.value==='all'?'all':+this.value)"><option value="all" ${whole?"selected":""}>Whole tree (everyone)</option>${cand.map(p=>`<option value="${p.id}" ${!whole&&p.id===sv?"selected":""}>${esc(dispName(p))} (#${p.id})</option>`).join("")}</select><select style="width:auto" onchange="hdepth(this.value)">${["2","3","4","5","all"].map(v=>`<option value="${v}" ${depthV===v?"selected":""}>${v==="all"?"All levels":v+" levels"}</option>`).join("")}</select></div>
  <div class="mut">Scroll sideways and down · tap a name for the full record · orange boxes = same person shown twice: the main box (men under their parents, women beside their husband) and a dashed ⇄ stub · tap the stub to jump to the main · tap the main to choose person page or stub</div>
  <div class="vtw vt${lr?" lr":""}"><div class="vtr">${body||'<div class="status">No families linked yet.</div>'}</div></div>
  ${left.length?`<details class="sec"><summary><b>Not yet linked (${left.length})</b></summary><div class="grid" style="margin-top:8px">${left.map(cardNN).join("")}</div></details>`:""}`}
