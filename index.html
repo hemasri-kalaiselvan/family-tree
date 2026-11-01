@@ -221,6 +221,11 @@ const SUPABASE_ANON_KEY="sb_publishable_J6TXONzH6rGFhM98qEQfAg_V5PEJW5-";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
 let people=[],marriages=[],session=null,role=null,loadErr="";
+/* family trees come from the ft_trees table (key, label, slug, sort); these defaults are used until it loads or if it is missing */
+let TREES=[{key:"vetri",label:"Vetri",slug:"vetri"},{key:"rajmohan",label:"Raj",slug:"raj"}];
+const treeLabel=k=>(TREES.find(t=>t.key===k)||{}).label||k||"";
+const treeSlug=k=>(TREES.find(t=>t.key===k)||{}).slug||k;
+const treeChips=()=>[["all","All"],...TREES.map(t=>[t.key,t.label])];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canEdit=()=>role==="admin";
@@ -234,7 +239,7 @@ const FAMILY_LINES=["subbarayan","nagarajan","venkatesan","govindasamy","ramakri
 const THITHI=["Prathamai","Dwithiyai","Thrithiyai","Chathurthi","Panchami","Shashti","Sapthami","Ashtami","Navami","Dasami","Ekadasi","Dwadasi","Thrayodasi","Chathurdasi","Pournami","Amavasai"];
 /* ---------- field definitions: [key,label,type,extra] ---------- */
 const PF=[
-["name","Name","text"],["tree","Family tree","sel",["vetri","rajmohan"]],["nickname","Nickname","text"],
+["name","Name","text"],["tree","Family tree","sel",[]],["nickname","Nickname","text"],
 ["gender","Gender","sel",["male","female","other"]],
 ["father_id","Father","person"],["mother_id","Mother","person"],["birth_order","Birth order among siblings","num"],
 ["dob","Date of birth","date"],["birth_time","Time of birth","time"],["birth_place","Place of birth","text"],
@@ -295,7 +300,8 @@ async function load(){
  loadErr="";
  const {data:{session:s}}=await sb.auth.getSession();session=s;role=null;
  if(s){const r=await sb.from("ft_app_users").select("role").eq("user_id",s.user.id).maybeSingle();role=r.data?.role||null}
- const [a,b]=await Promise.all([sb.rpc("ft_data",{tbl:"ft_people"}),sb.rpc("ft_data",{tbl:"ft_marriages"})]);
+ const [a,b,tr]=await Promise.all([sb.rpc("ft_data",{tbl:"ft_people"}),sb.rpc("ft_data",{tbl:"ft_marriages"}),sb.from("ft_trees").select("key,label,slug,sort").order("sort").order("key")]);
+ if(!tr.error&&tr.data&&tr.data.length)TREES=tr.data.map(t=>({key:t.key,label:t.label||t.key,slug:t.slug||t.key}));
  if(a.error||b.error){loadErr=(a.error||b.error).message;people=[];marriages=[]}
  else{
   /* people flagged is_hidden (ft_people.is_hidden = true) are never shown anywhere, and neither are their marriages */
@@ -313,9 +319,9 @@ sb.auth.onAuthStateChange((ev,ss)=>{const u=ss&&ss.user?ss.user.id:null;if(authU
 /* ---------- nav / routing ---------- */
 function renderNav(){
  const h=location.hash.slice(1)||"/";
- const items=[["/vetri","Vetri"],["/raj","Raj"],["/members","Members"]];
+ const items=[...TREES.map(t=>["/"+t.slug,t.label]),["/members","Members"]];
  
- $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/vetri"&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${h==="/add"||h==="/update"?"on":""}">✏️</a>`:"");
+ $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${h==="/add"||h==="/update"?"on":""}">✏️</a>`:"");
  if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
   const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>';document.body.appendChild(d)};
  document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
@@ -326,7 +332,7 @@ window.addEventListener("scroll",()=>{$("#top").style.display=scrollY>300?"block
 history.scrollRestoration="manual";
 let SV={};try{SV=JSON.parse(sessionStorage.getItem("ftSV")||"{}")}catch(x){}
 const hk=u=>{try{return new URL(u).hash||"#/"}catch(e){return"#/"}};
-const canRest=h=>/^#\/(vetri|raj|members)?$/.test(h);
+const canRest=h=>h==="#/"||h==="#/members"||TREES.some(t=>h==="#/"+t.slug);
 const sbox=()=>[...document.querySelectorAll(".vtw,.hwrap,.zw")];
 window.addEventListener("hashchange",e=>{
  const from=hk(e.oldURL),to=hk(e.newURL);
@@ -354,8 +360,8 @@ function route(){
  if(a==="update"){if(canEdit())return viewUpdate(app);location.hash="#/login";return}
  if(a==="person")return viewPerson(app,+b);
  if(a==="add"){if(canEdit()){app.innerHTML="";openPerson()}else location.hash="#/login";return}
- if(a==="raj")return viewTree(app,"rajmohan");
- viewTree(app,"vetri")}
+ const tt=TREES.find(t=>t.slug===a);
+ viewTree(app,tt?tt.key:TREES[0].key)}
 
 /* ---- Thivasam: date of a Tamil month + paksha + thithi (approximate astronomical calculation for IST) ---- */
 const _rad=Math.PI/180,_m360=x=>((x%360)+360)%360;
@@ -431,7 +437,7 @@ function bannerHtml(label){
  return`<div class="bnr"><div class="bt">🎉 ${soon?"Today &amp; upcoming":"Next up"}</div>${rows}<a class="lk" href="#/events">${more>0?"+"+more+" more · ":""}All events ›</a></div>`}
 let evf="all";
 function viewEvents(app){
- const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
+ const chips=treeChips();
  app.innerHTML=`<h2>Events</h2><div class="chips">${chips.map(([k,l])=>`<span class="chip ${evf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="evc" class="mut" style="margin-left:auto;align-self:center"></span></div><div id="evb"></div><div id="evl"></div>`;
  const draw=()=>{
   const t=todayD();
@@ -454,7 +460,7 @@ const fo={},st={};let pendJump=null;
 function toTreeLR(id){
  const p=P(id);if(!p)return;
  lay="lrt";st[p.tree]="all";depthV="all";depthN=99;pendJump=id;
- location.hash=p.tree==="rajmohan"?"#/raj":"#/vetri"}
+ location.hash="#/"+treeSlug(p.tree)}
 function fcard(p,cur){
  const per=period(p);
  return`<a class="pc ${cur?"cur":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
@@ -471,7 +477,7 @@ function viewTree(app,T){
  curTree=T;
  const pool=people.filter(p=>p.tree===T);
  const L=[["lrt","Left-right"],["vert","Top-down"],["hour","Hourglass"],["tree","Outline"],["horiz","Linked"]];
- app.innerHTML=`<h2>${T==="rajmohan"?"Raj":"Vetri"} family tree</h2>${bannerHtml(T)}
+ app.innerHTML=`<h2>${esc(treeLabel(T))} family tree</h2>${bannerHtml(T)}
  <div class="chips">${L.map(([k,l])=>`<span class="chip ${lay===k?"on":""}" data-l="${k}">${l}</span>`).join("")}<span class="mut" style="margin-left:auto;align-self:center">${pool.length} people</span></div><div id="lb"></div>`;
  const draw=()=>{$("#lb").innerHTML=lay==="tree"?treeHtml(T,pool):lay==="hour"?hourHtml(T,pool):lay==="vert"?vertHtml(T,pool):lay==="lrt"?vertHtml(T,pool,true):horizHtml(T,pool);window.curZ=null;if(lay==="horiz"){hLines();zoomWrap(".hwrap")}if(lay==="tree")pDup();if(lay==="vert"||lay==="lrt"){const va=lay==="lrt"?vAnchH:vAnch;vMark();va();zoomWrap(".vtw");document.fonts&&document.fonts.ready.then(()=>{if($(".vt")){const z=$(".zi"),t=z?z.style.transform:"";if(z)z.style.transform="none";va();if(z)z.style.transform=t;if(window.curZ)window.curZ.refit()}})}};
  window.drawLay=draw;
@@ -613,7 +619,7 @@ function treeHtml(T,pool){
 function hourHtml(T,pool){
  if(!pool.length)return'<div class="status">No people yet.</div>';
  let f=P(fo[T]);
- if(!f)f=(T==="rajmohan"?people.find(p=>p.name==="Rajmohan"):people.find(p=>p.name==="Vetriselvi"))||pool[0];
+ if(!f)f=(T==="rajmohan"?people.find(p=>p.name==="Rajmohan"):T==="vetri"?people.find(p=>p.name==="Vetriselvi"):null)||pool[0];
  fo[T]=f.id;
  const fa=P(f.father_id),mo=P(f.mother_id);
  const par=x=>x?[P(x.father_id),P(x.mother_id)].filter(Boolean):[];
@@ -1112,7 +1118,6 @@ let q="",mf="all";
 const lk=p=>`<a class="lk" href="#/person/${p.id}">${esc(dispName(p))}</a>`;
 const lk0=ps=>ps.map(lk).join(", ");
 const lks=ps=>ps.map(p=>lk(p)+(bo(p)!==null?`<span class="mut"> · ${esc(p.birth_order)}</span>`:"")).join(", ");
-const TL={vetri:"Vetri",rajmohan:"Raj"};
 const SHOWN=new Set(["is_placeholder","name","father_id","mother_id","photo_url","dob","dod","profession","current_location","tree","life_status","is_late"]);
 const SOC=["facebook","instagram","youtube","twitter","linkedin","github","telegram","snapchat","threads","pinterest","website","maps_link"];
 const HB={telegram:"https://t.me/",snapchat:"https://www.snapchat.com/add/",instagram:"https://instagram.com/",twitter:"https://x.com/",threads:"https://www.threads.net/@"};
@@ -1159,7 +1164,7 @@ function rec(p,full){
  const sub=[p.profession,p.current_location].filter(Boolean).join(" · ");
  return`<div class="mc ${full?"full":""}"><div class="mh"><div>
   ${full?`<div class="nm" style="font-size:1.25rem">${esc(dispName(p))}</div>`:`<a class="nm" href="#/person/${id}">${esc(dispName(p))}</a>`}
-  <span class="sub">#${id} · ${TL[p.tree]||""}${gOn()?" · "+(p.gender==="male"?"♂ Male":p.gender==="female"?"♀ Female":"⚠ Gender not set"):""}${kOn()&&p.kothram?" · 🕉 "+esc(p.kothram):""}</span>
+  <span class="sub">#${id} · ${esc(treeLabel(p.tree))}${gOn()?" · "+(p.gender==="male"?"♂ Male":p.gender==="female"?"♀ Female":"⚠ Gender not set"):""}${kOn()&&p.kothram?" · 🕉 "+esc(p.kothram):""}</span>
   ${per?`<div class="mut">${esc(per)}</div>`:""}${sub?`<div class="mut">${esc(sub)}</div>`:""}</div>
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
@@ -1172,7 +1177,7 @@ const kOn=()=>!!role&&(canEdit()||people.some(p=>p.kothram));
 let selMode=false;const sel=new Set();let gf="all",kf="all";
 function viewMembers(app){
  gf="all";if(!kOn())kf="all";
- const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
+ const chips=treeChips();
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
  <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
  ${kOn()?`<select id="kf" aria-label="Filter by kothram" style="margin:2px 0 8px"></select>`:""}
@@ -1242,7 +1247,7 @@ function fieldHtml([k,l,t,x],v){
  else if(t==="date")inp=`<input id="${id}" value="${esc(v)}" placeholder="YYYY-MM-DD, YYYY-MM, YYYY or --MM-DD (no year)">`;
  else if(t==="area")inp=`<textarea id="${id}" rows="3">${esc(v)}</textarea>`;
  else if(t==="chk")return`<label class="ck"><input id="${id}" type="checkbox" ${v?"checked":""}> ${l}</label>`;
- else if(t==="sel")inp=`<select id="${id}"><option value=""></option>${x.map(o=>`<option ${o===v?"selected":""} value="${o}">${o==="rajmohan"?"Raj":o[0].toUpperCase()+o.slice(1)}</option>`).join("")}</select>`;
+ else if(t==="sel")inp=`<select id="${id}"><option value=""></option>${(id==="f_tree"?TREES.map(t=>t.key):x).map(o=>`<option ${o===v?"selected":""} value="${esc(o)}">${esc(id==="f_tree"?treeLabel(o):o)}</option>`).join("")}</select>`;
  else if(t==="person")inp=`<select id="${id}"><option value=""></option>${[...people].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>`<option value="${p.id}" ${p.id===v?"selected":""}>${esc(p.name)} (#${p.id})</option>`).join("")}</select>`;
  else if(t==="photo")inp=`<input id="${id}" type="hidden" value="${esc(v)}"><input type="file" accept="image/*" onchange="upPhoto(this,'${id}')"><img id="${id}_pv" class="pv" src="${esc(v)}" ${v?"":"hidden"} alt="">`;
  return`<label for="${id}">${l}</label>${inp}`}
@@ -1370,8 +1375,8 @@ function openBranch(){
   d.querySelectorAll(".ks").forEach(inp=>inp.oninput=()=>{seeds[+inp.dataset.r]=inp.value;draw()})};
  const draw=()=>{
   const L=branchCalc(seeds);
-  chg=people.filter(p=>L.has(p.id)&&L.get(p.id)!==(p.branch||"").trim()).map(p=>({p,v:L.get(p.id)}));
-  const none=people.filter(p=>!L.has(p.id)),on=chg.filter(c=>!off.has(c.p.id));
+  chg=people.filter(p=>p.tree==="vetri"&&L.has(p.id)&&L.get(p.id)!==(p.branch||"").trim()).map(p=>({p,v:L.get(p.id)}));
+  const none=people.filter(p=>p.tree==="vetri"&&!L.has(p.id)),on=chg.filter(c=>!off.has(c.p.id));
   $("#ptitle").textContent=`Preview: ${chg.length} change${chg.length===1?"":"s"} (${on.length} selected)${none.length?` · ${none.length} still without a line`:""}`;
   $("#prev").innerHTML=(chg.map(({p,v})=>`<label class="kr"><input type="checkbox" class="kc" data-id="${p.id}" ${off.has(p.id)?"":"checked"}><span class="kn">${esc(p.name)} <span class="mut">#${p.id}${(p.branch||"").trim()?"":" · missing"}</span></span><span class="kc2">${esc(p.branch||"—")} → <b style="color:var(--ink)">${esc(v)}</b></span></label>`).join(""))+(none.length?`<div class="mut" style="color:var(--red)">No line (add a head above): ${none.map(p=>esc(p.name)+" #"+p.id).join(", ")}</div>`:"");
   $("#sv").disabled=!on.length;$("#sv").textContent=`Apply ${on.length}`};
@@ -1396,7 +1401,7 @@ function viewUpdate(app){
  <p class="mut" style="margin:2px 0 10px">Kothram, Native place and Family line are worked out from the root ancestors; you preview every change before applying.</p>
  <b>Status: Alive / Deceased</b>
  <div class="sb"><input id="uq" placeholder="Search name or ID…"><button id="uqc" class="qc" aria-label="Clear search" hidden>✕</button></div>
- <div class="chips">${[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]].map(([k,l])=>`<span class="chip ${k==="all"?"on":""}" data-u="${k}">${l}</span>`).join("")}<span id="ucnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
+ <div class="chips">${treeChips().map(([k,l])=>`<span class="chip ${k==="all"?"on":""}" data-u="${k}">${l}</span>`).join("")}<span id="ucnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
  <div id="ulist"></div>
  <div id="ubulk" class="bulk" hidden><b id="ubc"></b><button id="uall" class="alt">All shown</button><button id="unone" class="alt">Clear</button><button id="ugo">Set status…</button></div>`;
  let shown=[];
@@ -1425,7 +1430,7 @@ const hintHtml=p=>{
  const t=f?"Father: "+f.name:m?"Mother: "+m.name:sp?"Spouse: "+sp.name:(p.branch||"");
  return t?`<div class="mut" style="font-size:.8rem;font-weight:400">${esc(t)}</div>`:""};
 let ttree="all";
-const treeHead=t=>`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 8px"><h2 style="margin:0">${t}</h2><div class="chips" style="margin:0">${[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]].map(([k,l])=>`<span class="chip ${ttree===k?"on":""}" data-tt="${k}">${l}</span>`).join("")}</div></div>`;
+const treeHead=t=>`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 8px"><h2 style="margin:0">${t}</h2><div class="chips" style="margin:0">${treeChips().map(([k,l])=>`<span class="chip ${ttree===k?"on":""}" data-tt="${k}">${l}</span>`).join("")}</div></div>`;
 const bindTree=cb=>document.querySelectorAll(".chip[data-tt]").forEach(c=>c.onclick=()=>{ttree=c.dataset.tt;document.querySelectorAll(".chip[data-tt]").forEach(x=>x.classList.toggle("on",x===c));cb()});
 const canContacts=()=>role==="admin"||role==="member_advanced";
 function viewContacts(app){
@@ -1452,7 +1457,7 @@ function viewFilter(app){
  const inTree=p=>ttree==="all"||p.tree===ttree;
  const UNSET="__unset__";
  const vals=f=>{const pool=people.filter(inTree);const blank=pool.filter(p=>!nfv(f,p[f])).length;
-  let L;if(f==="branch")L=FAMILY_LINES.map(k=>[k,pool.filter(p=>(p.branch||"").trim()===k).length,k]);
+  let L;if(f==="branch"){const ex=[...new Set(pool.map(p=>(p.branch||"").trim()).filter(v=>v&&!FAMILY_LINES.includes(v)))].sort();L=FAMILY_LINES.concat(ex).map(k=>[k,pool.filter(p=>(p.branch||"").trim()===k).length,k])}
   else{const c={};pool.forEach(p=>{const v=nfv(f,p[f]);if(v)c[v]=(c[v]||0)+1});L=Object.keys(c).sort((a,b)=>a.localeCompare(b)).map(k=>[k,c[k],k])}
   return L.concat([[UNSET,blank,"— Not set —"]])};
  app.innerHTML=`${treeHead("🔍 Filter")}${[0].map(i=>`<div class="row" style="gap:6px;margin:6px 0"><select id="ff${i}" style="flex:1"><option value="">Field…</option>${AF.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select><select id="fv${i}" style="flex:1" disabled><option value="">Value…</option></select></div>`).join("")}
