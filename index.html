@@ -141,6 +141,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 #mmenu{position:fixed;top:var(--hh,52px);right:8px;z-index:50;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px #0004;padding:6px;min-width:170px}
 #mmenu a{display:block;padding:10px 12px;border-radius:8px;font-weight:600;color:var(--ink)}
 #mmenu a:hover{background:#e7eef8}
+.tw{overflow-x:auto}.ct{width:100%;border-collapse:collapse;font-size:.9rem}.ct th,.ct td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ct th{color:var(--mut);font-weight:700}.ct a{color:var(--ink)}
 .bnr{background:linear-gradient(135deg,#fff4e8,#ffe9f0);border:1px solid #f1c9a5;border-radius:12px;padding:8px 12px;margin:8px 0}
 .bnr .bt{font-weight:700;margin-bottom:2px}
 .bnr .br{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:.88rem;border-top:1px solid #f1d9c4}
@@ -299,8 +300,10 @@ sb.auth.onAuthStateChange((ev,ss)=>{const u=ss&&ss.user?ss.user.id:null;if(authU
 function renderNav(){
  const h=location.hash.slice(1)||"/";
  const items=[["/vetri","Vetri"],["/raj","Raj"],["/members","Members"]];
- if(canEdit())items.push(["/add","+ Add"]);
- $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/vetri"&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("");
+ 
+ $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/vetri"&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${h==="/add"||h==="/update"?"on":""}">✏️</a>`:"");
+ if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
+  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>';document.body.appendChild(d)};
  document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
@@ -320,18 +323,21 @@ window.addEventListener("hashchange",e=>{
  else window.scrollTo(0,0)});
 $("#who").onclick=()=>{location.hash="#/login"};
 $("#more").onclick=e=>{e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
- const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/events">📅 Events</a>';document.body.appendChild(d)};
+ const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/events">📅 Events</a><a href="#/contacts">📞 Contacts</a><a href="#/filter">🔍 Filter</a>';document.body.appendChild(d)};
 document.addEventListener("click",()=>{const o=$("#mmenu");if(o)o.remove()});
 
 function route(){
- window.curZ=null;document.body.style.overflow="";document.body.classList.remove("bulkon");if(!/^#\/members/.test(location.hash)){selMode=false;sel.clear()}
+ window.curZ=null;document.body.style.overflow="";document.body.classList.remove("bulkon");if(!/^#\/(members|update)/.test(location.hash)){selMode=false;sel.clear()}
  if(/error_description=/.test(location.hash)){const m=decodeURIComponent((location.hash.match(/error_description=([^&]*)/)[1]||"").replace(/\+/g," "));$("#app").innerHTML=`<div class="status warn">Sign-in failed: ${esc(m)}<br>Request a new link from 👤 and open it right away.</div>`;return}
  const [,a,b]=(location.hash.slice(1)||"/").split("/");
  const app=$("#app");
  if(a==="login")return viewLogin(app);
  if(loadErr){app.innerHTML=`<div class="status warn">Could not load data: ${esc(loadErr)}<br>Did you run schema.sql in Supabase?</div>`;return}
  if(a==="events")return viewEvents(app);
+ if(a==="contacts")return viewContacts(app);
+ if(a==="filter")return viewFilter(app);
  if(a==="members")return viewMembers(app);
+ if(a==="update"){if(canEdit())return viewUpdate(app);location.hash="#/login";return}
  if(a==="person")return viewPerson(app,+b);
  if(a==="add"){if(canEdit()){app.innerHTML="";openPerson()}else location.hash="#/login";return}
  if(a==="raj")return viewTree(app,"rajmohan");
@@ -1155,7 +1161,7 @@ function viewMembers(app){
  if(!gOn())gf="all";if(!kOn())kf="all";
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
- <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}${canEdit()?`<span id="selb" class="chip ${selMode?"on":""}">☑ Select</span><span id="kothb" class="chip">🕉 Kothram</span><span id="nativb" class="chip">📍 Native</span>`:""}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
+ <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
  ${gOn()?`<div class="chips" id="gchips">${[["all","All"],["male","♂ Male"],["female","♀ Female"],["none","⚠ Not set"]].map(([k,l])=>`<span class="chip ${gf===k?"on":""}" data-g="${k}" data-l="${l}">${l}</span>`).join("")}</div>`:""}
  ${kOn()?`<select id="kf" aria-label="Filter by kothram" style="margin:2px 0 8px"></select>`:""}
  <div id="list"></div>
@@ -1182,9 +1188,6 @@ function viewMembers(app){
  document.querySelectorAll(".chip[data-g]").forEach(c=>c.onclick=()=>{gf=c.dataset.g;draw()});
  document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  if(canEdit()){
-  $("#selb").onclick=()=>{selMode=!selMode;if(!selMode)sel.clear();viewMembers($("#app"))};
-  $("#kothb").onclick=openKothram;
-  $("#nativb").onclick=openNative;
   $("#list").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("sc")){const id=+c.dataset.id;c.checked?sel.add(id):sel.delete(id);bar()}};
   $("#ball").onclick=()=>{shown.forEach(id=>sel.add(id));draw()};
   $("#bnone").onclick=()=>{sel.clear();draw()};
@@ -1304,6 +1307,130 @@ function openInherit(F){
    if(error){$("#msg").textContent=error.message;$("#sv").disabled=false;return}}
   d.close();await load()};
  draw();d.showModal()}
+
+
+/* ---------- bulk Family line / branch ----------
+   Heads: type a value on each root ancestor and on each "branch head" (a child of the oldest couple). Everyone else is derived:
+   descendants follow the father (or the mother if the father is married-in), married-in spouses take their spouse's line, in-law parents follow their child.
+   Re-run any time: it lists people whose value is missing or different from the computed one. */
+function branchCalc(seeds){
+ const L=new Map(),bl=new Set(),kids={},sp={};
+ Object.entries(seeds).forEach(([i,v])=>{if((v||"").trim()){L.set(+i,v.trim());bl.add(+i)}});
+ people.forEach(p=>[p.father_id,p.mother_id].forEach(q=>{if(q)(kids[q]=kids[q]||[]).push(p.id)}));
+ marriages.forEach(m=>{(sp[m.person1_id]=sp[m.person1_id]||[]).push(m.person2_id);(sp[m.person2_id]=sp[m.person2_id]||[]).push(m.person1_id)});
+ let ch=1;
+ while(ch){ch=0;people.forEach(p=>{if(L.has(p.id))return;
+  for(const q of[p.father_id,p.mother_id])if(q&&bl.has(q)){L.set(p.id,L.get(q));bl.add(p.id);ch=1;return}})}
+ const sib=p=>people.filter(o=>o.id!==p.id&&((p.father_id&&o.father_id===p.father_id)||(p.mother_id&&o.mother_id===p.mother_id)));
+ ch=1;
+ while(ch){ch=0;people.forEach(p=>{if(L.has(p.id))return;
+  const c=(sp[p.id]||[]).find(s=>L.has(s))||[p.father_id,p.mother_id].find(q=>q&&L.has(q))||(kids[p.id]||[]).find(k=>L.has(k))||(sib(p).find(o=>L.has(o.id))||{}).id;
+  if(c){L.set(p.id,L.get(c));ch=1}})}
+ return L}
+function openBranch(){
+ const d=$("#dlg"),off=new Set(),seeds={},tr=people.some(p=>p.tree==="vetri")?"vetri":null;
+ const hasPar=p=>!!(p.father_id||p.mother_id);
+ const kidsOf=id=>people.filter(o=>o.father_id===id||o.mother_id===id);
+ const spOf=id=>marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>P(m.person1_id===id?m.person2_id:m.person1_id)).filter(Boolean);
+ people.forEach(p=>{
+  const br=(p.branch||"").trim();
+  if(!hasPar(p)&&kidsOf(p.id).length&&!spOf(p.id).some(hasPar))seeds[p.id]=br;
+  else if(hasPar(p)&&br){const pb=[P(p.father_id),P(p.mother_id)].filter(Boolean).map(o=>(o.branch||"").trim());if(!pb.includes(br))seeds[p.id]=br}});
+ d.innerHTML=`<h2>Bulk update Family line</h2><div id="msg" class="mut" style="color:var(--red)"></div>
+ <p class="mut">Type the value on each root ancestor and branch head below. Everyone else is derived: descendants follow the father (mother if the father is married-in), spouses take their partner's line, in-law parents follow their child. Clear a box to remove that head.</p>
+ <b>Roots &amp; branch heads (<span id="sc">0</span>)</b>
+ <div id="sl" style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0"></div>
+ <select id="ah"><option value="">+ Add a branch head…</option>${[...people].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>`<option value="${p.id}">${esc(p.name)} (#${p.id})</option>`).join("")}</select>
+ <b id="ptitle"></b>
+ <div id="prev" style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0"></div>
+ <div class="row" style="justify-content:flex-end"><button class="alt" id="cx">Cancel</button><button id="sv">Apply</button></div>`;
+ let chg=[];
+ const drawS=()=>{const ids=Object.keys(seeds).map(Number).sort((a,b)=>(P(a).name||"").localeCompare(P(b).name||""));
+  $("#sc").textContent=ids.length;
+  $("#sl").innerHTML=ids.map(i=>`<div class="rr"><div class="rn">${esc(P(i).name)} <span>#${i}</span></div><input class="ks" data-r="${i}" value="${esc(seeds[i]||"")}" placeholder="family line"></div>`).join("");
+  d.querySelectorAll(".ks").forEach(inp=>inp.oninput=()=>{seeds[+inp.dataset.r]=inp.value;draw()})};
+ const draw=()=>{
+  const L=branchCalc(seeds);
+  chg=people.filter(p=>L.has(p.id)&&L.get(p.id)!==(p.branch||"").trim()).map(p=>({p,v:L.get(p.id)}));
+  const none=people.filter(p=>!L.has(p.id)),on=chg.filter(c=>!off.has(c.p.id));
+  $("#ptitle").textContent=`Preview: ${chg.length} change${chg.length===1?"":"s"} (${on.length} selected)${none.length?` · ${none.length} still without a line`:""}`;
+  $("#prev").innerHTML=(chg.map(({p,v})=>`<label class="kr"><input type="checkbox" class="kc" data-id="${p.id}" ${off.has(p.id)?"":"checked"}><span class="kn">${esc(p.name)} <span class="mut">#${p.id}${(p.branch||"").trim()?"":" · missing"}</span></span><span class="kc2">${esc(p.branch||"—")} → <b style="color:var(--ink)">${esc(v)}</b></span></label>`).join(""))+(none.length?`<div class="mut" style="color:var(--red)">No line (add a head above): ${none.map(p=>esc(p.name)+" #"+p.id).join(", ")}</div>`:"");
+  $("#sv").disabled=!on.length;$("#sv").textContent=`Apply ${on.length}`};
+ $("#ah").onchange=e=>{const i=+e.target.value;if(i&&!(i in seeds)){seeds[i]=(P(i).branch||"").trim();drawS();draw()}e.target.value=""};
+ $("#prev").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("kc")){const id=+c.dataset.id;c.checked?off.delete(id):off.add(id);draw()}};
+ $("#cx").onclick=()=>d.close();
+ $("#sv").onclick=async()=>{
+  const by={};chg.filter(c=>!off.has(c.p.id)).forEach(c=>(by[c.v]=by[c.v]||[]).push(c.p.id));
+  $("#sv").disabled=true;
+  for(const[v,ids]of Object.entries(by)){
+   const{error}=await sb.from("ft_people").update({branch:v}).in("id",ids);
+   if(error){$("#msg").textContent=error.message;$("#sv").disabled=false;return}}
+  d.close();await load()};
+ drawS();draw();d.showModal()}
+
+
+/* ---------- Update page: bulk tools (moved from Members) ---------- */
+function viewUpdate(app){
+ let uq="",ut="all";
+ app.innerHTML=`<h2 style="margin:4px 0 10px">🔄 Update</h2>
+ <div class="chips"><span id="kothb" class="chip">🕉 Kothram</span><span id="nativb" class="chip">📍 Native</span><span id="brb" class="chip">🌿 Family line</span></div>
+ <p class="mut" style="margin:2px 0 10px">Kothram, Native place and Family line are worked out from the root ancestors; you preview every change before applying.</p>
+ <b>Status: Alive / Deceased</b>
+ <div class="sb"><input id="uq" placeholder="Search name or ID…"><button id="uqc" class="qc" aria-label="Clear search" hidden>✕</button></div>
+ <div class="chips">${[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]].map(([k,l])=>`<span class="chip ${k==="all"?"on":""}" data-u="${k}">${l}</span>`).join("")}<span id="ucnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
+ <div id="ulist"></div>
+ <div id="ubulk" class="bulk" hidden><b id="ubc"></b><button id="uall" class="alt">All shown</button><button id="unone" class="alt">Clear</button><button id="ugo">Set status…</button></div>`;
+ let shown=[];
+ const stl={alive:"Alive",deceased:"Deceased",unknown:"Unknown"};
+ const bar=()=>{$("#ubulk").hidden=!sel.size;document.body.classList.toggle("bulkon",!!sel.size);$("#ubc").textContent=sel.size+" selected"};
+ const draw=()=>{$("#uqc").hidden=!uq;const t=uq.trim().toLowerCase();
+  const r=people.filter(p=>(ut==="all"||p.tree===ut)&&(!t||[p.name,p.nickname,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t)))).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  shown=r.map(p=>p.id);$("#ucnt").textContent=`${r.length} of ${people.length}`;
+  $("#ulist").innerHTML=r.map(p=>`<label class="kr"><input type="checkbox" class="sc" data-id="${p.id}" ${sel.has(p.id)?"checked":""}><span class="kn">${esc(p.name)} <span class="mut">#${p.id}</span></span><span class="kc2">${stl[p.life_status]||"Unknown"}${p.dod?" · "+esc(p.dod):""}</span></label>`).join("");bar()};
+ $("#uq").oninput=e=>{uq=e.target.value;draw()};
+ $("#uqc").onclick=()=>{uq="";$("#uq").value="";draw()};
+ document.querySelectorAll(".chip[data-u]").forEach(c=>c.onclick=()=>{ut=c.dataset.u;document.querySelectorAll(".chip[data-u]").forEach(x=>x.classList.toggle("on",x===c));draw()});
+ $("#ulist").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("sc")){const id=+c.dataset.id;c.checked?sel.add(id):sel.delete(id);bar()}};
+ $("#uall").onclick=()=>{shown.forEach(id=>sel.add(id));draw()};
+ $("#unone").onclick=()=>{sel.clear();draw()};
+ $("#ugo").onclick=openBulk;
+ $("#kothb").onclick=openKothram;$("#nativb").onclick=openNative;$("#brb").onclick=openBranch;
+ draw()}
+
+
+/* ---------- Contacts page (advanced members and admin only) and Filter page ---------- */
+const fullName=p=>{const f=P(p.father_id);return(p.name||"Unnamed")+(f?" "+(f.name||""):"")};
+const canContacts=()=>role==="admin"||role==="member_advanced";
+function viewContacts(app){
+ const ok=canContacts();let cq="";
+ app.innerHTML=`<h2>📞 Contacts</h2>${ok?`<div class="sb"><input id="cq" placeholder="Search name, phone, email, ID…"><button id="cqc" class="qc" aria-label="Clear search" hidden>✕</button></div><div id="cc" class="mut" style="margin:4px 0"></div>`:""}
+ <div class="tw"><table class="ct"><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Alt phone</th><th>Tree</th></tr></thead><tbody id="cb">${ok?"":`<tr><td colspan="6" class="mut" style="white-space:normal;padding:14px 6px">Only advanced member can view.</td></tr>`}</tbody></table></div>`;
+ if(!ok)return;
+ const draw=()=>{$("#cqc").hidden=!cq;const t=cq.trim().toLowerCase();
+  const r=people.filter(p=>(p.phone||p.email||p.alt_phone)&&(!t||[String(p.id),fullName(p),p.phone,p.email,p.alt_phone].some(v=>v&&String(v).toLowerCase().includes(t)))).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
+  $("#cc").textContent=`${r.length} contact${r.length===1?"":"s"}`;
+  $("#cb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td><td>${p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:""}</td><td>${p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:""}</td><td>${p.alt_phone?`<a href="tel:${esc(p.alt_phone)}">${esc(p.alt_phone)}</a>`:""}</td><td><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
+ $("#cq").oninput=e=>{cq=e.target.value;draw()};
+ $("#cqc").onclick=()=>{cq="";$("#cq").value="";draw()};
+ $("#cb").onclick=e=>{const a=e.target.closest(".tl");if(a){e.preventDefault();toTreeLR(+a.dataset.id)}};
+ draw()}
+const FILT=[["kothram","Kothram"],["native_place","Native"],["gender","Gender"],["blood_group","Blood group"],["branch","Family line"],["current_location","Current location"],["rasi","Rasi"],["natchathiram","Natchathiram"]];
+function viewFilter(app){
+ const sel2=[{f:"",v:""},{f:"",v:""}];
+ const vals=f=>{const c={};people.forEach(p=>{const v=(p[f]||"").trim();if(v)c[v]=(c[v]||0)+1});return Object.keys(c).sort((a,b)=>a.localeCompare(b)).map(k=>[k,c[k]])};
+ app.innerHTML=`<h2>🔍 Filter</h2>${[0,1].map(i=>`<div class="row" style="gap:6px;margin:6px 0"><select id="ff${i}" style="flex:1"><option value="">Field ${i+1}…</option>${FILT.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select><select id="fv${i}" style="flex:1" disabled><option value="">Value…</option></select></div>`).join("")}
+ <div id="fc" class="mut" style="margin:6px 0"></div><div class="tw"><table class="ct"><thead><tr><th>ID</th><th>Name</th></tr></thead><tbody id="fb"></tbody></table></div>`;
+ const draw=()=>{
+  const act=sel2.filter(x=>x.f&&x.v);
+  if(!act.length){$("#fc").textContent="Pick a field and a value.";$("#fb").innerHTML="";return}
+  const r=people.filter(p=>act.every(x=>(p[x.f]||"").trim()===x.v)).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
+  $("#fc").textContent=`${r.length} ${r.length===1?"person":"people"}`;
+  $("#fb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td></tr>`).join("")};
+ [0,1].forEach(i=>{
+  $("#ff"+i).onchange=e=>{const f=e.target.value;sel2[i]={f,v:""};const v=$("#fv"+i);
+   v.innerHTML=`<option value="">Value…</option>`+(f?vals(f).map(([k,n])=>`<option value="${esc(k)}">${esc(k)} (${n})</option>`).join(""):"");v.disabled=!f;draw()};
+  $("#fv"+i).onchange=e=>{sel2[i].v=e.target.value;draw()}});
+ draw()}
 
 function collect(F,errs){const o={};
  F.forEach(([k,l,t])=>{const e=document.getElementById("f_"+k);let v;
