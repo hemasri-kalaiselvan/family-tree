@@ -282,7 +282,11 @@ async function load(){
  if(s){const r=await sb.from("ft_app_users").select("role").eq("user_id",s.user.id).maybeSingle();role=r.data?.role||null}
  const [a,b]=await Promise.all([sb.rpc("ft_data",{tbl:"ft_people"}),sb.rpc("ft_data",{tbl:"ft_marriages"})]);
  if(a.error||b.error){loadErr=(a.error||b.error).message;people=[];marriages=[]}
- else{people=a.data;marriages=b.data}
+ else{
+  /* people flagged is_hidden (ft_people.is_hidden = true) are never shown anywhere, and neither are their marriages */
+  const hid=new Set(a.data.filter(p=>p.is_hidden).map(p=>p.id));
+  people=a.data.filter(p=>!p.is_hidden);
+  marriages=b.data.filter(m=>!hid.has(m.person1_id)&&!hid.has(m.person2_id))}
  const zk=window.curZ?{s:window.curZ.s,t:window.curZ.touched,f:window.curZ.isFS(),w:sbox().map(el=>[el.scrollLeft,el.scrollTop]),y:scrollY}:null;
  renderNav();route();
  /* a reload (e.g. after sign-in or an edit) must not throw away the zoom / scroll position of the tree being viewed */
