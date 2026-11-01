@@ -142,6 +142,18 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 #mmenu a{display:block;padding:10px 12px;border-radius:8px;font-weight:600;color:var(--ink)}
 #mmenu a:hover{background:#e7eef8}
 .tw{overflow-x:auto}.ct{width:100%;border-collapse:collapse;font-size:.9rem}.ct th,.ct td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ct th{color:var(--mut);font-weight:700}.ct a{color:var(--ink)}
+@media(max-width:700px){
+.ct thead{display:none}.ct,.ct tbody{display:block}
+.ct tr{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;padding:10px 4px;border-bottom:1px solid var(--line);align-items:center}
+.ct td{border:0;padding:0;white-space:normal;word-break:break-word}
+.ct td:empty{display:none}
+.ct td:nth-child(1){color:var(--mut);font-size:.8rem}
+.ct td:nth-child(2){font-weight:700;font-size:1rem}
+.ct td:nth-child(6){grid-row:1;grid-column:3;font-size:1.3rem}
+.ct td[data-l]{grid-column:2/4;font-size:.92rem}
+.ct td[data-l]::before{content:attr(data-l);display:inline-block;min-width:68px;color:var(--mut);font-size:.8rem}
+.ct td.msg{grid-column:1/-1}
+}
 .bnr{background:linear-gradient(135deg,#fff4e8,#ffe9f0);border:1px solid #f1c9a5;border-radius:12px;padding:8px 12px;margin:8px 0}
 .bnr .bt{font-weight:700;margin-bottom:2px}
 .bnr .br{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:.88rem;border-top:1px solid #f1d9c4}
@@ -217,6 +229,8 @@ const P=id=>people.find(p=>p.id===id);
 /* death details (Tamil calendar) - dropdown choices */
 const TMONTH=["Chithirai","Vaikasi","Aani","Aadi","Aavani","Purattasi","Aippasi","Karthigai","Margazhi","Thai","Maasi","Panguni"];
 const PAKSHA=["Shukla Paksha (Valarpirai)","Krishna Paksha (Theipirai)"];
+/* the approved Family lines - the only values offered in the form and the Filter page; edit this list to add a new line */
+const FAMILY_LINES=["subbarayan","nagarajan","venkatesan","govindasamy","ramakrishnan","narayanasamy","andal-pichai","rukmani","root-azhagappa","root-pichai"];
 const THITHI=["Prathamai","Dwithiyai","Thrithiyai","Chathurthi","Panchami","Shashti","Sapthami","Ashtami","Navami","Dasami","Ekadasi","Dwadasi","Thrayodasi","Chathurdasi","Pournami","Amavasai"];
 /* ---------- field definitions: [key,label,type,extra] ---------- */
 const PF=[
@@ -233,7 +247,7 @@ const PF=[
 ["facebook","Facebook","text"],["instagram","Instagram","text"],["youtube","YouTube","text"],["twitter","Twitter / X","text"],["linkedin","LinkedIn","text"],["github","GitHub","text"],
 ["whatsapp","WhatsApp number","text"],["telegram","Telegram","text"],["snapchat","Snapchat","text"],["threads","Threads","text"],["pinterest","Pinterest","text"],["website","Website / blog","text"],["maps_link","Google Maps location link","text"],["alt_phone","Alternate phone","text"],["home_address","Home address","area"],
 ["blood_group","Blood group","sel",["A+","A-","B+","B-","AB+","AB-","O+","O-"]],
-["branch","Family line / branch","text"],
+["branch","Family line / branch","sel",FAMILY_LINES],
 ["is_placeholder","Placeholder name (e.g. \"Ravi's son\")","chk"],
 ["notes","Notes","area"],["photo_url","Photo","photo"]];
 const MF=[
@@ -1158,11 +1172,10 @@ const gOn=()=>!!role&&(canEdit()||people.some(p=>p.gender));
 const kOn=()=>!!role&&(canEdit()||people.some(p=>p.kothram));
 let selMode=false;const sel=new Set();let gf="all",kf="all";
 function viewMembers(app){
- if(!gOn())gf="all";if(!kOn())kf="all";
+ gf="all";if(!kOn())kf="all";
  const chips=[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]];
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
  <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
- ${gOn()?`<div class="chips" id="gchips">${[["all","All"],["male","♂ Male"],["female","♀ Female"],["none","⚠ Not set"]].map(([k,l])=>`<span class="chip ${gf===k?"on":""}" data-g="${k}" data-l="${l}">${l}</span>`).join("")}</div>`:""}
  ${kOn()?`<select id="kf" aria-label="Filter by kothram" style="margin:2px 0 8px"></select>`:""}
  <div id="list"></div>
  <div id="bulk" class="bulk" hidden><b id="bc"></b><button id="ball" class="alt">All shown</button><button id="bnone" class="alt">Clear</button><button id="bgo">Set status…</button></div>`;
@@ -1185,7 +1198,6 @@ function viewMembers(app){
  $("#q").oninput=e=>{q=e.target.value;draw()};
  $("#qc").onclick=()=>{q="";$("#q").value="";$("#q").focus();draw()};
  if(kOn())$("#kf").onchange=e=>{kf=e.target.value;draw()};
- document.querySelectorAll(".chip[data-g]").forEach(c=>c.onclick=()=>{gf=c.dataset.g;draw()});
  document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  if(canEdit()){
   $("#list").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("sc")){const id=+c.dataset.id;c.checked?sel.add(id):sel.delete(id);bar()}};
@@ -1400,33 +1412,38 @@ function viewUpdate(app){
 
 /* ---------- Contacts page (advanced members and admin only) and Filter page ---------- */
 const fullName=p=>{const f=P(p.father_id);return(p.name||"Unnamed")+(f?" "+(f.name||""):"")};
+let ttree="all";
+const treeHead=t=>`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 8px"><h2 style="margin:0">${t}</h2><div class="chips" style="margin:0">${[["all","All"],["vetri","Vetri"],["rajmohan","Raj"]].map(([k,l])=>`<span class="chip ${ttree===k?"on":""}" data-tt="${k}">${l}</span>`).join("")}</div></div>`;
+const bindTree=cb=>document.querySelectorAll(".chip[data-tt]").forEach(c=>c.onclick=()=>{ttree=c.dataset.tt;document.querySelectorAll(".chip[data-tt]").forEach(x=>x.classList.toggle("on",x===c));cb()});
 const canContacts=()=>role==="admin"||role==="member_advanced";
 function viewContacts(app){
  const ok=canContacts();let cq="";
- app.innerHTML=`<h2>📞 Contacts</h2>${ok?`<div class="sb"><input id="cq" placeholder="Search name, phone, email, ID…"><button id="cqc" class="qc" aria-label="Clear search" hidden>✕</button></div><div id="cc" class="mut" style="margin:4px 0"></div>`:""}
- <div class="tw"><table class="ct"><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Alt phone</th><th>Tree</th></tr></thead><tbody id="cb">${ok?"":`<tr><td colspan="6" class="mut" style="white-space:normal;padding:14px 6px">Only advanced member can view.</td></tr>`}</tbody></table></div>`;
+ app.innerHTML=`${ok?treeHead("📞 Contacts"):"<h2>📞 Contacts</h2>"}${ok?`<div class="sb"><input id="cq" placeholder="Search name, phone, email, ID…"><button id="cqc" class="qc" aria-label="Clear search" hidden>✕</button></div><div id="cc" class="mut" style="margin:4px 0"></div>`:""}
+ <div class="tw"><table class="ct"><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Alt phone</th><th>Tree</th></tr></thead><tbody id="cb">${ok?"":`<tr><td colspan="6" class="mut msg" style="white-space:normal;padding:14px 6px">Only advanced member can view.</td></tr>`}</tbody></table></div>`;
  if(!ok)return;
  const draw=()=>{$("#cqc").hidden=!cq;const t=cq.trim().toLowerCase();
-  const r=people.filter(p=>(p.phone||p.email||p.alt_phone)&&(!t||[String(p.id),fullName(p),p.phone,p.email,p.alt_phone].some(v=>v&&String(v).toLowerCase().includes(t)))).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
+  const r=people.filter(p=>(ttree==="all"||p.tree===ttree)&&(p.phone||p.email||p.alt_phone)&&(!t||[String(p.id),fullName(p),p.phone,p.email,p.alt_phone].some(v=>v&&String(v).toLowerCase().includes(t)))).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
   $("#cc").textContent=`${r.length} contact${r.length===1?"":"s"}`;
-  $("#cb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td><td>${p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:""}</td><td>${p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:""}</td><td>${p.alt_phone?`<a href="tel:${esc(p.alt_phone)}">${esc(p.alt_phone)}</a>`:""}</td><td><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
+  $("#cb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td><td data-l="Phone">${p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:""}</td><td data-l="Email">${p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:""}</td><td data-l="Alt phone">${p.alt_phone?`<a href="tel:${esc(p.alt_phone)}">${esc(p.alt_phone)}</a>`:""}</td><td><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
+ bindTree(draw);
  $("#cq").oninput=e=>{cq=e.target.value;draw()};
  $("#cqc").onclick=()=>{cq="";$("#cq").value="";draw()};
  $("#cb").onclick=e=>{const a=e.target.closest(".tl");if(a){e.preventDefault();toTreeLR(+a.dataset.id)}};
  draw()}
 const FILT=[["kothram","Kothram"],["native_place","Native"],["gender","Gender"],["blood_group","Blood group"],["branch","Family line"],["current_location","Current location"],["rasi","Rasi"],["natchathiram","Natchathiram"]];
 function viewFilter(app){
- const sel2=[{f:"",v:""},{f:"",v:""}];
- const vals=f=>{const c={};people.forEach(p=>{const v=(p[f]||"").trim();if(v)c[v]=(c[v]||0)+1});return Object.keys(c).sort((a,b)=>a.localeCompare(b)).map(k=>[k,c[k]])};
- app.innerHTML=`<h2>🔍 Filter</h2>${[0,1].map(i=>`<div class="row" style="gap:6px;margin:6px 0"><select id="ff${i}" style="flex:1"><option value="">Field ${i+1}…</option>${FILT.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select><select id="fv${i}" style="flex:1" disabled><option value="">Value…</option></select></div>`).join("")}
+ const sel2=[{f:"",v:""}];
+ const vals=f=>{if(f==="branch")return FAMILY_LINES.map(k=>[k,people.filter(p=>(p.branch||"").trim()===k).length]);const c={};people.forEach(p=>{const v=(p[f]||"").trim();if(v)c[v]=(c[v]||0)+1});return Object.keys(c).sort((a,b)=>a.localeCompare(b)).map(k=>[k,c[k]])};
+ app.innerHTML=`${treeHead("🔍 Filter")}${[0].map(i=>`<div class="row" style="gap:6px;margin:6px 0"><select id="ff${i}" style="flex:1"><option value="">Field…</option>${FILT.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select><select id="fv${i}" style="flex:1" disabled><option value="">Value…</option></select></div>`).join("")}
  <div id="fc" class="mut" style="margin:6px 0"></div><div class="tw"><table class="ct"><thead><tr><th>ID</th><th>Name</th></tr></thead><tbody id="fb"></tbody></table></div>`;
  const draw=()=>{
   const act=sel2.filter(x=>x.f&&x.v);
   if(!act.length){$("#fc").textContent="Pick a field and a value.";$("#fb").innerHTML="";return}
-  const r=people.filter(p=>act.every(x=>(p[x.f]||"").trim()===x.v)).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
+  const r=people.filter(p=>(ttree==="all"||p.tree===ttree)&&act.every(x=>(p[x.f]||"").trim()===x.v)).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
   $("#fc").textContent=`${r.length} ${r.length===1?"person":"people"}`;
   $("#fb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td></tr>`).join("")};
- [0,1].forEach(i=>{
+ bindTree(draw);
+ [0].forEach(i=>{
   $("#ff"+i).onchange=e=>{const f=e.target.value;sel2[i]={f,v:""};const v=$("#fv"+i);
    v.innerHTML=`<option value="">Value…</option>`+(f?vals(f).map(([k,n])=>`<option value="${esc(k)}">${esc(k)} (${n})</option>`).join(""):"");v.disabled=!f;draw()};
   $("#fv"+i).onchange=e=>{sel2[i].v=e.target.value;draw()}});
