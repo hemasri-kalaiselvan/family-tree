@@ -144,12 +144,12 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .tw{overflow-x:auto}.ct{width:100%;border-collapse:collapse;font-size:.9rem}.ct th,.ct td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ct th{color:var(--mut);font-weight:700}.ct a{color:var(--ink)}
 @media(max-width:700px){
 .ct thead{display:none}.ct,.ct tbody{display:block}
-.ct tr{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;padding:10px 4px;border-bottom:1px solid var(--line);align-items:center}
+.ct tr{display:grid;grid-template-columns:2.6rem 1fr auto;gap:2px 10px;padding:10px 4px;border-bottom:1px solid var(--line);align-items:center}
 .ct td{border:0;padding:0;white-space:normal;word-break:break-word}
 .ct td:empty{display:none}
-.ct td:nth-child(1){color:var(--mut);font-size:.8rem}
+.ct td:nth-child(1){color:var(--mut);font-size:.8rem;font-variant-numeric:tabular-nums}
 .ct td:nth-child(2){font-weight:700;font-size:1rem}
-.ct td:nth-child(6){grid-row:1;grid-column:3;font-size:1.3rem}
+.ct td.tc{grid-row:1;grid-column:3;font-size:1.3rem}
 .ct td[data-l]{grid-column:2/4;font-size:.92rem}
 .ct td[data-l]::before{content:attr(data-l);display:inline-block;min-width:68px;color:var(--mut);font-size:.8rem}
 .ct td.msg{grid-column:1/-1}
@@ -1344,10 +1344,18 @@ function openBranch(){
  const hasPar=p=>!!(p.father_id||p.mother_id);
  const kidsOf=id=>people.filter(o=>o.father_id===id||o.mother_id===id);
  const spOf=id=>marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>P(m.person1_id===id?m.person2_id:m.person1_id)).filter(Boolean);
- people.forEach(p=>{
-  const br=(p.branch||"").trim();
-  if(!hasPar(p)&&kidsOf(p.id).length&&!spOf(p.id).some(hasPar))seeds[p.id]=br;
-  else if(hasPar(p)&&br){const pb=[P(p.father_id),P(p.mother_id)].filter(Boolean).map(o=>(o.branch||"").trim());if(!pb.includes(br))seeds[p.id]=br}});
+ /* default heads come from the approved FAMILY_LINES (matched by name and position in the tree), not from old stored values */
+ const fw=p=>(p.name||"").trim().split(/\s+/)[0].toLowerCase();
+ const roots=people.filter(p=>!hasPar(p)&&kidsOf(p.id).length&&!spOf(p.id).some(hasPar));
+ FAMILY_LINES.filter(v=>v.startsWith("root-")).forEach(v=>roots.forEach(r=>{if(fw(r)===v.slice(5))seeds[r.id]=v}));
+ roots.forEach(r=>{if(!seeds[r.id]){const o=spOf(r.id).find(x=>seeds[x.id]);if(o)seeds[r.id]=seeds[o.id]}});
+ const depth=p=>{let x=p,n=0;while(x&&n<30){if(seeds[x.id]&&String(seeds[x.id]).startsWith("root-"))return n;x=P(x.father_id)||P(x.mother_id);n++}return 99};
+ FAMILY_LINES.filter(v=>!v.startsWith("root-")).forEach(v=>{const[k,suf]=v.split("-");
+  const rl=p=>{let x=p;for(let n=0;x&&n<30;n++){if(seeds[x.id]&&String(seeds[x.id]).startsWith("root-"))return seeds[x.id];x=P(x.father_id)||P(x.mother_id)}return""};
+  const c=people.filter(p=>hasPar(p)&&fw(p)===k&&(!suf||rl(p).endsWith(suf))&&depth(p)<99);
+  const m=Math.min(...c.map(depth));c.filter(p=>depth(p)===m).forEach(p=>{seeds[p.id]=v})});
+ {const L=branchCalc(seeds);people.forEach(p=>{if(p.gender!=="female"||seeds[p.id]!==undefined||!(L.get(p.id)||"").startsWith("root-"))return;
+  const o=spOf(p.id).find(x=>L.get(x.id)&&L.get(x.id)!==L.get(p.id));if(o)seeds[p.id]=L.get(o.id)})}
  d.innerHTML=`<h2>Bulk update Family line</h2><div id="msg" class="mut" style="color:var(--red)"></div>
  <p class="mut">Type the value on each root ancestor and branch head below. Everyone else is derived: descendants follow the father (mother if the father is married-in), spouses take their partner's line, in-law parents follow their child. Clear a box to remove that head.</p>
  <b>Roots &amp; branch heads (<span id="sc">0</span>)</b>
@@ -1424,24 +1432,26 @@ function viewContacts(app){
  const draw=()=>{$("#cqc").hidden=!cq;const t=cq.trim().toLowerCase();
   const r=people.filter(p=>(ttree==="all"||p.tree===ttree)&&(p.phone||p.email||p.alt_phone)&&(!t||[String(p.id),fullName(p),p.phone,p.email,p.alt_phone].some(v=>v&&String(v).toLowerCase().includes(t)))).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
   $("#cc").textContent=`${r.length} contact${r.length===1?"":"s"}`;
-  $("#cb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td><td data-l="Phone">${p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:""}</td><td data-l="Email">${p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:""}</td><td data-l="Alt phone">${p.alt_phone?`<a href="tel:${esc(p.alt_phone)}">${esc(p.alt_phone)}</a>`:""}</td><td><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
+  $("#cb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td><td data-l="Phone">${p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:""}</td><td data-l="Email">${p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:""}</td><td data-l="Alt phone">${p.alt_phone?`<a href="tel:${esc(p.alt_phone)}">${esc(p.alt_phone)}</a>`:""}</td><td class="tc"><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
  bindTree(draw);
  $("#cq").oninput=e=>{cq=e.target.value;draw()};
  $("#cqc").onclick=()=>{cq="";$("#cq").value="";draw()};
  $("#cb").onclick=e=>{const a=e.target.closest(".tl");if(a){e.preventDefault();toTreeLR(+a.dataset.id)}};
  draw()}
+const nfv=(f,v)=>{v=(v||"").trim();return f==="natchathiram"?v.replace(/\s*\d+\s*$/,""):v};
 const FILT=[["kothram","Kothram"],["native_place","Native"],["gender","Gender"],["blood_group","Blood group"],["branch","Family line"],["current_location","Current location"],["rasi","Rasi"],["natchathiram","Natchathiram"]];
 function viewFilter(app){
  const sel2=[{f:"",v:""}];
- const vals=f=>{if(f==="branch")return FAMILY_LINES.map(k=>[k,people.filter(p=>(p.branch||"").trim()===k).length]);const c={};people.forEach(p=>{const v=(p[f]||"").trim();if(v)c[v]=(c[v]||0)+1});return Object.keys(c).sort((a,b)=>a.localeCompare(b)).map(k=>[k,c[k]])};
+ const vals=f=>{if(f==="branch")return FAMILY_LINES.map(k=>[k,people.filter(p=>(p.branch||"").trim()===k).length]);const c={};people.forEach(p=>{const v=nfv(f,p[f]);if(v)c[v]=(c[v]||0)+1});return Object.keys(c).sort((a,b)=>a.localeCompare(b)).map(k=>[k,c[k]])};
  app.innerHTML=`${treeHead("🔍 Filter")}${[0].map(i=>`<div class="row" style="gap:6px;margin:6px 0"><select id="ff${i}" style="flex:1"><option value="">Field…</option>${FILT.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select><select id="fv${i}" style="flex:1" disabled><option value="">Value…</option></select></div>`).join("")}
- <div id="fc" class="mut" style="margin:6px 0"></div><div class="tw"><table class="ct"><thead><tr><th>ID</th><th>Name</th></tr></thead><tbody id="fb"></tbody></table></div>`;
+ <div id="fc" class="mut" style="margin:6px 0"></div><div class="tw"><table class="ct"><thead><tr><th>ID</th><th>Name</th><th>Tree</th></tr></thead><tbody id="fb"></tbody></table></div>`;
  const draw=()=>{
   const act=sel2.filter(x=>x.f&&x.v);
   if(!act.length){$("#fc").textContent="Pick a field and a value.";$("#fb").innerHTML="";return}
-  const r=people.filter(p=>(ttree==="all"||p.tree===ttree)&&act.every(x=>(p[x.f]||"").trim()===x.v)).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
+  const r=people.filter(p=>(ttree==="all"||p.tree===ttree)&&act.every(x=>nfv(x.f,p[x.f])===x.v)).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
   $("#fc").textContent=`${r.length} ${r.length===1?"person":"people"}`;
-  $("#fb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a></td></tr>`).join("")};
+  $("#fb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(fullName(p))}</a>${act.some(x=>x.f==="natchathiram")&&p.natchathiram?`<div class="mut" style="font-size:.85rem">${esc(p.natchathiram.trim())}</div>`:""}</td><td class="tc"><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
+ $("#fb").onclick=e=>{const a=e.target.closest(".tl");if(a){e.preventDefault();toTreeLR(+a.dataset.id)}};
  bindTree(draw);
  [0].forEach(i=>{
   $("#ff"+i).onchange=e=>{const f=e.target.value;sel2[i]={f,v:""};const v=$("#fv"+i);
