@@ -1723,57 +1723,64 @@ function openInherit(F){
    Heads: type a value on each root ancestor and on each "branch head" (a child of the oldest couple). Everyone else is derived:
    descendants follow the father (or the mother if the father is married-in), married-in spouses take their spouse's line, in-law parents follow their child.
    Re-run any time: it lists people whose value is missing or different from the computed one. */
-function branchCalc(seeds){
- const L=new Map(),bl=new Set(),kids={},sp={};
+function branchCalc(seeds,pool){
+ const PL=pool||people,inP=new Set(PL.map(p=>p.id)),L=new Map(),bl=new Set(),kids={},sp={};
  Object.entries(seeds).forEach(([i,v])=>{if((v||"").trim()){L.set(+i,v.trim());bl.add(+i)}});
- people.forEach(p=>[p.father_id,p.mother_id].forEach(q=>{if(q)(kids[q]=kids[q]||[]).push(p.id)}));
- marriages.forEach(m=>{(sp[m.person1_id]=sp[m.person1_id]||[]).push(m.person2_id);(sp[m.person2_id]=sp[m.person2_id]||[]).push(m.person1_id)});
+ PL.forEach(p=>[p.father_id,p.mother_id].forEach(q=>{if(q&&inP.has(q))(kids[q]=kids[q]||[]).push(p.id)}));
+ marriages.filter(m=>inP.has(m.person1_id)&&inP.has(m.person2_id)).forEach(m=>{(sp[m.person1_id]=sp[m.person1_id]||[]).push(m.person2_id);(sp[m.person2_id]=sp[m.person2_id]||[]).push(m.person1_id)});
  let ch=1;
- while(ch){ch=0;people.forEach(p=>{if(L.has(p.id))return;
+ while(ch){ch=0;PL.forEach(p=>{if(L.has(p.id))return;
   for(const q of[p.father_id,p.mother_id])if(q&&bl.has(q)){L.set(p.id,L.get(q));bl.add(p.id);ch=1;return}})}
- const sib=p=>people.filter(o=>o.id!==p.id&&((p.father_id&&o.father_id===p.father_id)||(p.mother_id&&o.mother_id===p.mother_id)));
+ const sib=p=>PL.filter(o=>o.id!==p.id&&((p.father_id&&o.father_id===p.father_id)||(p.mother_id&&o.mother_id===p.mother_id)));
  ch=1;
- while(ch){ch=0;people.forEach(p=>{if(L.has(p.id))return;
+ while(ch){ch=0;PL.forEach(p=>{if(L.has(p.id))return;
   const c=(sp[p.id]||[]).find(s=>L.has(s))||[p.father_id,p.mother_id].find(q=>q&&L.has(q))||(kids[p.id]||[]).find(k=>L.has(k))||(sib(p).find(o=>L.has(o.id))||{}).id;
   if(c){L.set(p.id,L.get(c));ch=1}})}
  return L}
 function openBranch(){
- const d=$("#dlg"),off=new Set(),seeds={},tr=people.some(p=>p.tree==="vetri")?"vetri":null;
+ const d=$("#dlg"),off=new Set(),seeds={};
+ let T=TREES.some(t=>t.key===ttree)?ttree:TREES[0].key;
+ const pool=()=>people.filter(p=>p.tree===T);
  const hasPar=p=>!!(p.father_id||p.mother_id);
  const kidsOf=id=>people.filter(o=>o.father_id===id||o.mother_id===id);
  const spOf=id=>marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>P(m.person1_id===id?m.person2_id:m.person1_id)).filter(Boolean);
- /* default heads come from the approved FAMILY_LINES (matched by name and position in the tree), not from old stored values */
+ /* default heads (Vetri tree only) come from the approved FAMILY_LINES, matched by name and position in the tree; other trees start empty and you add their heads */
  const fw=p=>(p.name||"").trim().split(/\s+/)[0].toLowerCase();
- const roots=people.filter(p=>!hasPar(p)&&kidsOf(p.id).length&&!spOf(p.id).some(hasPar));
- FAMILY_LINES.filter(v=>v.startsWith("root-")).forEach(v=>roots.forEach(r=>{if(fw(r)===v.slice(5))seeds[r.id]=v}));
- roots.forEach(r=>{if(!seeds[r.id]){const o=spOf(r.id).find(x=>seeds[x.id]);if(o)seeds[r.id]=seeds[o.id]}});
- const depth=p=>{let x=p,n=0;while(x&&n<30){if(seeds[x.id]&&String(seeds[x.id]).startsWith("root-"))return n;x=P(x.father_id)||P(x.mother_id);n++}return 99};
- FAMILY_LINES.filter(v=>!v.startsWith("root-")).forEach(v=>{const[k,suf]=v.split("-");
-  const rl=p=>{let x=p;for(let n=0;x&&n<30;n++){if(seeds[x.id]&&String(seeds[x.id]).startsWith("root-"))return seeds[x.id];x=P(x.father_id)||P(x.mother_id)}return""};
-  const c=people.filter(p=>hasPar(p)&&fw(p)===k&&(!suf||rl(p).endsWith(suf))&&depth(p)<99);
-  const m=Math.min(...c.map(depth));c.filter(p=>depth(p)===m).forEach(p=>{seeds[p.id]=v})});
- {const L=branchCalc(seeds);people.forEach(p=>{if(p.gender!=="female"||seeds[p.id]!==undefined||!(L.get(p.id)||"").startsWith("root-"))return;
-  const o=spOf(p.id).find(x=>L.get(x.id)&&L.get(x.id)!==L.get(p.id));if(o)seeds[p.id]=L.get(o.id)})}
+ const init=()=>{Object.keys(seeds).forEach(k=>delete seeds[k]);off.clear();if(T!=="vetri")return;const pl=pool();
+  const roots=pl.filter(p=>!hasPar(p)&&kidsOf(p.id).length&&!spOf(p.id).some(hasPar));
+  FAMILY_LINES.filter(v=>v.startsWith("root-")).forEach(v=>roots.forEach(r=>{if(fw(r)===v.slice(5))seeds[r.id]=v}));
+  roots.forEach(r=>{if(!seeds[r.id]){const o=spOf(r.id).find(x=>seeds[x.id]);if(o)seeds[r.id]=seeds[o.id]}});
+  const depth=p=>{let x=p,n=0;while(x&&n<30){if(seeds[x.id]&&String(seeds[x.id]).startsWith("root-"))return n;x=P(x.father_id)||P(x.mother_id);n++}return 99};
+  FAMILY_LINES.filter(v=>!v.startsWith("root-")).forEach(v=>{const[k,suf]=v.split("-");
+   const rl=p=>{let x=p;for(let n=0;x&&n<30;n++){if(seeds[x.id]&&String(seeds[x.id]).startsWith("root-"))return seeds[x.id];x=P(x.father_id)||P(x.mother_id)}return""};
+   const c=pl.filter(p=>hasPar(p)&&fw(p)===k&&(!suf||rl(p).endsWith(suf))&&depth(p)<99);
+   const m=Math.min(...c.map(depth));c.filter(p=>depth(p)===m).forEach(p=>{seeds[p.id]=v})});
+  {const L=branchCalc(seeds,pl);pl.forEach(p=>{if(p.gender!=="female"||seeds[p.id]!==undefined||!(L.get(p.id)||"").startsWith("root-"))return;
+   const o=spOf(p.id).find(x=>L.get(x.id)&&L.get(x.id)!==L.get(p.id));if(o)seeds[p.id]=L.get(o.id)})}};
+ init();
  d.innerHTML=`<h2>Bulk update Family line</h2><div id="msg" class="mut" style="color:var(--red)"></div>
+ <select id="tsel" aria-label="Tree" style="margin:4px 0">${TREES.map(t=>`<option value="${esc(t.key)}" ${t.key===T?"selected":""}>${esc(t.label)} tree</option>`).join("")}</select>
  <p class="mut">Type the value on each root ancestor and branch head below. Everyone else is derived: descendants follow the father (mother if the father is married-in), spouses take their partner's line, in-law parents follow their child. Clear a box to remove that head.</p>
  <b>Roots &amp; branch heads (<span id="sc">0</span>)</b>
  <div id="sl" style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0"></div>
- <select id="ah"><option value="">+ Add a branch head…</option>${[...people].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>`<option value="${p.id}">${esc(p.name)} (#${p.id})</option>`).join("")}</select>
+ <select id="ah"></select>
  <b id="ptitle"></b>
  <div id="prev" style="max-height:30vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0"></div>
  <div class="row" style="justify-content:flex-end"><button class="alt" id="cx">Cancel</button><button id="sv">Apply</button></div>`;
  let chg=[];
  const drawS=()=>{const ids=Object.keys(seeds).map(Number).sort((a,b)=>(P(a).name||"").localeCompare(P(b).name||""));
   $("#sc").textContent=ids.length;
-  $("#sl").innerHTML=ids.map(i=>`<div class="rr"><div class="rn">${esc(P(i).name)} <span>#${i}</span></div><input class="ks" data-r="${i}" value="${esc(seeds[i]||"")}" placeholder="family line"></div>`).join("");
+  $("#sl").innerHTML=(ids.length?"":`<div class="mut">No heads for this tree yet. Use "+ Add a branch head…" below, pick the person, then type the family line name.</div>`)+ids.map(i=>`<div class="rr"><div class="rn">${esc(P(i).name)} <span>#${i}</span></div><input class="ks" data-r="${i}" value="${esc(seeds[i]||"")}" placeholder="family line"></div>`).join("");
   d.querySelectorAll(".ks").forEach(inp=>inp.oninput=()=>{seeds[+inp.dataset.r]=inp.value;draw()})};
  const draw=()=>{
-  const L=branchCalc(seeds);
-  chg=people.filter(p=>p.tree==="vetri"&&L.has(p.id)&&L.get(p.id)!==(p.branch||"").trim()).map(p=>({p,v:L.get(p.id)}));
-  const none=people.filter(p=>p.tree==="vetri"&&!L.has(p.id)),on=chg.filter(c=>!off.has(c.p.id));
+  const L=branchCalc(seeds,pool());
+  chg=pool().filter(p=>L.has(p.id)&&L.get(p.id)!==(p.branch||"").trim()).map(p=>({p,v:L.get(p.id)}));
+  const none=pool().filter(p=>!L.has(p.id)),on=chg.filter(c=>!off.has(c.p.id));
   $("#ptitle").textContent=`Preview: ${chg.length} change${chg.length===1?"":"s"} (${on.length} selected)${none.length?` · ${none.length} still without a line`:""}`;
   $("#prev").innerHTML=(chg.map(({p,v})=>`<label class="kr"><input type="checkbox" class="kc" data-id="${p.id}" ${off.has(p.id)?"":"checked"}><span class="kn">${esc(p.name)} <span class="mut">#${p.id}${(p.branch||"").trim()?"":" · missing"}</span></span><span class="kc2">${esc(p.branch||"—")} → <b style="color:var(--ink)">${esc(v)}</b></span></label>`).join(""))+(none.length?`<div class="mut" style="color:var(--red)">No line (add a head above): ${none.map(p=>esc(p.name)+" #"+p.id).join(", ")}</div>`:"");
   $("#sv").disabled=!on.length;$("#sv").textContent=`Apply ${on.length}`};
+ const fillAh=()=>{$("#ah").innerHTML=`<option value="">+ Add a branch head…</option>`+pool().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>`<option value="${p.id}">${esc(p.name)} (#${p.id})</option>`).join("")};
+ $("#tsel").onchange=e=>{T=e.target.value;init();fillAh();drawS();draw()};
  $("#ah").onchange=e=>{const i=+e.target.value;if(i&&!(i in seeds)){seeds[i]=(P(i).branch||"").trim();drawS();draw()}e.target.value=""};
  $("#prev").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("kc")){const id=+c.dataset.id;c.checked?off.delete(id):off.add(id);draw()}};
  $("#cx").onclick=()=>d.close();
@@ -1784,7 +1791,7 @@ function openBranch(){
    const{error}=await sb.from("ft_people").update({branch:v}).in("id",ids);
    if(error){$("#msg").textContent=error.message;$("#sv").disabled=false;return}}
   d.close();await load()};
- drawS();draw();d.showModal()}
+ fillAh();drawS();draw();d.showModal()}
 
 
 /* ---------- Update page: bulk tools (moved from Members) ---------- */
