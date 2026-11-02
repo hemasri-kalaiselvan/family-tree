@@ -259,7 +259,7 @@ const PF=[
 ["life_status","Alive / Deceased","sel",["alive","deceased","unknown"]],
 ["dod","Date of death","date"],["death_place","Place of death","text"],["death_tamil_month","Tamil month of death","sel",TMONTH],["death_paksha","Paksha (death)","sel",PAKSHA],["death_thithi","Thithi (death)","sel",THITHI],
 ["education","Education","text"],["profession","Profession","text"],
-["current_location","Currently lives in","text"],["native_place","Native place","text"],
+["current_location","Currently lives in","text"],["home_town","Home town","text"],["native_place","Native place","text"],
 ["kothram","Kothram","text"],["rasi","Rasi","text"],["natchathiram","Natchathiram","text"],
 ["phone","Phone","text"],["email","Email","text"],
 ["facebook","Facebook","text"],["instagram","Instagram","text"],["youtube","YouTube","text"],["twitter","Twitter / X","text"],["linkedin","LinkedIn","text"],["github","GitHub","text"],
@@ -1577,7 +1577,7 @@ function viewBulkUpdate(app){
    if(done){BU.ed={};BU.en=[];BU.tps=[];BU.tc=0;BU.msg="Saved ✓";await load()}else{ok.disabled=false;$("#bu_bk").disabled=false}}};
  forLbl();cnt();drawPend();drawFam()}
 /* ---------- Location update (admin): one location for people and their households ---------- */
-const LC={loc:"",sel:[],ov:{}};
+const LC={loc:"",mode:"cur",sel:[],ov:{}};
 /* a household = the picked person + spouse(s) (married) + unmarried children; deceased people are skipped */
 function lcGroups(sel){const seen=new Map(),groups=[],dead=p=>p.life_status==="deceased"||!!p.dod;
  for(const id of sel){const s=P(id);if(!s)continue;const g={s,rows:[]};
@@ -1588,33 +1588,38 @@ function lcGroups(sel){const seen=new Map(),groups=[],dead=p=>p.life_status==="d
   groups.push(g)}
  return groups}
 /* what would happen to one row for the typed location */
-function lcDecide(r,nw,ov){const cur=(r.p.current_location||"").trim();
- if(!nw)return{cur,state:"none",on:false};
- if(cur.toLowerCase()===nw.toLowerCase())return{cur,state:"same",on:false};
- const def=!cur||r.direct;return{cur,state:cur?"replace":"set",on:ov[r.p.id]!==undefined?ov[r.p.id]:def}}
+function lcDecide(r,nw,ov,fl){fl=fl||["current_location"];const curs=fl.map(f=>(r.p[f]||"").trim());
+ if(!nw)return{curs,state:"none",on:false};
+ const diff=curs.map(c=>c.toLowerCase()!==nw.toLowerCase());
+ if(!diff.some(Boolean))return{curs,state:"same",on:false};
+ const clash=curs.some((c,i)=>diff[i]&&c),def=!clash||r.direct;
+ return{curs,state:clash?"replace":"set",on:ov[r.p.id]!==undefined?ov[r.p.id]:def}}
+const LC_F={cur:["current_location"],home:["home_town"],both:["current_location","home_town"]};
 function viewLocation(app){
  const locs=[...new Set(people.map(p=>(p.current_location||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
  app.innerHTML=`<h2 style="margin:4px 0 6px">📍 Location</h2>
- <div class="mut" style="margin-bottom:8px">Set one current location for a person and their household: spouse and unmarried children get it too. Add several people or families to give them all the same location.</div>
- <input id="lc_l" list="lc_dl" placeholder="Current location, e.g. Chennai" value="${esc(LC.loc)}" autocomplete="off"><datalist id="lc_dl">${locs.map(l=>`<option value="${esc(l)}">`).join("")}</datalist>
+ <div class="mut" style="margin-bottom:8px">Set one place as current location, home town, or both at once, for a person and their household: spouse and unmarried children get it too. Add several people or families to give them all the same location.</div>
+ <select id="lc_f" style="margin-bottom:6px"><option value="cur">Set: Current location</option><option value="home">Set: Home town</option><option value="both">Set: Current location and Home town (same place)</option></select>
+ <input id="lc_l" list="lc_dl" placeholder="Place, e.g. Chennai" value="${esc(LC.loc)}" autocomplete="off"><datalist id="lc_dl">${locs.map(l=>`<option value="${esc(l)}">`).join("")}</datalist>
  <div class="bkw" style="margin-top:8px"><input id="lc_q" placeholder="Add a person: type a name" autocomplete="off"><div class="acb" id="lc_qb"></div></div>
  <div id="lc_sel" class="chips" style="margin:6px 0"></div><div id="lc_pv"></div>
  <div class="row" style="gap:8px;align-items:center;margin:10px 0"><button id="lc_go">Apply</button><span id="lc_m" class="mut"></span></div>`;
  const say=(t,bad)=>{const m=$("#lc_m");m.textContent=t||"";m.style.color=bad?"var(--red)":""};
  let todo=[];
- const draw=()=>{const nw=LC.loc.trim(),G=lcGroups(LC.sel);let upd=0,keep=0;todo=[];
+ const draw=()=>{const nw=LC.loc.trim(),fl=LC_F[LC.mode],G=lcGroups(LC.sel);let upd=0,keep=0;todo=[];
   $("#lc_sel").innerHTML=LC.sel.map(id=>`<span class="chip on" data-rm="${id}">${esc(P(id).name)} ✕</span>`).join("");
   $("#lc_sel").querySelectorAll("[data-rm]").forEach(c=>c.onclick=()=>{LC.sel=LC.sel.filter(x=>x!==+c.dataset.rm);draw()});
-  $("#lc_pv").innerHTML=G.length?`<div class="mut" style="margin:6px 0">Rows that already have a different location are left alone unless you tick them. Children living elsewhere stay as they are.</div>`+G.map(g=>`<div class="uh">${esc(g.s.name)} <span class="mut" style="font-weight:400">${esc(hintTxt(g.s))}</span></div>`+g.rows.map(r=>{
-   const d=lcDecide(r,nw,LC.ov);if(d.on){upd++;todo.push(r.p.id)}else if(d.state==="replace")keep++;
-   return`<label class="kr"><input type="checkbox" class="lc_c" data-id="${r.p.id}" ${d.on?"checked":""} ${d.state==="same"||d.state==="none"?"disabled":""}><span class="kn">${esc(r.p.name)} <span class="mut">${esc(r.rel)} · #${r.p.id}</span></span><span class="kc2">${esc(d.cur||"—")}${nw?` → <b style="color:var(--ink)">${esc(nw)}</b>`:""}${d.state==="same"?" · already set":""}</span></label>`}).join("")).join(""):`<div class="mut" style="margin:14px 0">Type a location, then add a person to see who will be updated.</div>`;
+  $("#lc_pv").innerHTML=G.length?`<div class="mut" style="margin:6px 0">Rows that already have a different place are left alone unless you tick them. Children living elsewhere stay as they are.</div>`+G.map(g=>`<div class="uh">${esc(g.s.name)} <span class="mut" style="font-weight:400">${esc(hintTxt(g.s))}</span></div>`+g.rows.map(r=>{
+   const d=lcDecide(r,nw,LC.ov,fl),sh=fl.length===1?(d.curs[0]||"—"):"Now "+(d.curs[0]||"—")+" · home "+(d.curs[1]||"—");if(d.on){upd++;todo.push(r.p.id)}else if(d.state==="replace")keep++;
+   return`<label class="kr"><input type="checkbox" class="lc_c" data-id="${r.p.id}" ${d.on?"checked":""} ${d.state==="same"||d.state==="none"?"disabled":""}><span class="kn">${esc(r.p.name)} <span class="mut">${esc(r.rel)} · #${r.p.id}</span></span><span class="kc2">${esc(sh)}${nw?` → <b style="color:var(--ink)">${esc(nw)}</b>`:""}${d.state==="same"?" · already set":""}</span></label>`}).join("")).join(""):`<div class="mut" style="margin:14px 0">Type a location, then add a person to see who will be updated.</div>`;
   $("#lc_pv").querySelectorAll(".lc_c").forEach(c=>c.onchange=()=>{LC.ov[+c.dataset.id]=c.checked;draw()});
   $("#lc_go").textContent="Apply"+(upd?" ("+upd+")":"");$("#lc_go").disabled=!upd||!nw;
   if(G.length&&nw)say(keep?keep+" kept as they are (different location already set)":"")};
+ $("#lc_f").value=LC.mode;$("#lc_f").onchange=e=>{LC.mode=e.target.value;LC.ov={};draw()};
  $("#lc_l").oninput=e=>{LC.loc=e.target.value;draw()};
  acInit($("#lc_q"),$("#lc_qb"),x=>{if(x.pid&&!LC.sel.includes(x.pid))LC.sel.push(x.pid);$("#lc_q").value="";draw()},()=>{});
  $("#lc_go").onclick=async()=>{const nw=LC.loc.trim();if(!nw||!todo.length)return;const b=$("#lc_go");b.disabled=true;say("Saving…");
-  const {error}=await sb.from("ft_people").update({current_location:nw}).in("id",todo);
+  const upd2={};LC_F[LC.mode].forEach(f=>upd2[f]=nw);const {error}=await sb.from("ft_people").update(upd2).in("id",todo);
   if(error){b.disabled=false;return say("Could not save: "+error.message,1)}
   LC.sel=[];LC.ov={};const n=todo.length;await load();const m=$("#lc_m");if(m)m.textContent="Updated "+n+" "+(n===1?"person":"people")+" ✓"};
  draw()}
@@ -1631,7 +1636,7 @@ function viewMembers(app){
   const gm=p=>p.gender==="male"?"male":p.gender==="female"?"female":"none";
   const tp=people.filter(p=>mf==="all"||p.tree===mf);
   if(gOn())document.querySelectorAll(".chip[data-g]").forEach(c=>{const k=c.dataset.g;c.textContent=c.dataset.l+" ("+(k==="all"?tp.length:tp.filter(p=>gm(p)===k).length)+")";c.classList.toggle("on",gf===k)});
-  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(gf==="all"||gm(p)===gf)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
+  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(gf==="all"||gm(p)===gf)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.home_town,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   shown=r.map(p=>p.id);
   $("#cnt").textContent=`${r.length} of ${people.length}`;
@@ -1899,7 +1904,7 @@ function viewContacts(app){
  $("#cb").onclick=e=>{const a=e.target.closest(".tl");if(a){e.preventDefault();toTreeLR(+a.dataset.id)}};
  draw()}
 const nfv=(f,v)=>{v=(v||"").trim();return f==="natchathiram"?v.replace(/\s*\d+\s*$/,""):v};
-const FILT=[["kothram","Kothram"],["native_place","Native"],["gender","Gender"],["blood_group","Blood group"],["branch","Family line"],["current_location","Current location"],["rasi","Rasi"],["natchathiram","Natchathiram"]];
+const FILT=[["kothram","Kothram"],["native_place","Native"],["gender","Gender"],["blood_group","Blood group"],["branch","Family line"],["current_location","Current location"],["home_town","Home town"],["rasi","Rasi"],["natchathiram","Natchathiram"]];
 function viewFilter(app){
  /* only offer filter fields the server actually sent to this viewer (decided by ft_field_access), so nothing is hard-coded per role */
  const AF=FILT.filter(([k])=>people.some(p=>k in p));
@@ -1948,6 +1953,12 @@ function openForm(title,F,rec,onSave,extra){
   const dead=s.value==="deceased"||(od&&od.value.trim()!=="");
   d.querySelectorAll('[data-k="dod"],[data-k="death_place"],[data-k="death_tamil_month"],[data-k="death_paksha"],[data-k="death_thithi"]').forEach(x=>x.style.display=dead?"":"none")};
  tg();const ls=document.getElementById("f_life_status");if(ls)ls.onchange=tg;
+ /* "same as" ticks: home town = currently lives in, WhatsApp = phone */
+ const sameBox=(src,dst,label)=>{const a=document.getElementById("f_"+src),b=document.getElementById("f_"+dst);if(!a||!b)return;
+  const box=document.createElement("label");box.className="ck";box.innerHTML='<input type="checkbox"> '+label;const c=box.firstElementChild;
+  const sync=()=>{if(c.checked){b.value=a.value;b.readOnly=true}else b.readOnly=false};
+  c.checked=!!a.value.trim()&&a.value.trim()===b.value.trim();sync();c.onchange=sync;a.addEventListener("input",()=>{if(c.checked)b.value=a.value});b.insertAdjacentElement("afterend",box)};
+ sameBox("current_location","home_town","Same as Currently lives in");sameBox("phone","whatsapp","Same as phone");
  d.showModal()}
 async function upPhoto(inp,id){const f=inp.files[0];if(!f)return;
  try{const bmp=await createImageBitmap(f);const s=Math.min(1,600/Math.max(bmp.width,bmp.height));
