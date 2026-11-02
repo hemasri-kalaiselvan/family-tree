@@ -334,7 +334,7 @@ function renderNav(){
  const h=location.hash.slice(1)||"/";
  const items=[...TREES.map(t=>["/"+t.slug,t.label]),["/members","Members"]];
  
- $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${["/add","/update","/bulk","/bupdate","/import","/trees"].includes(h)?"on":""}">✏️</a>`:"");
+ $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${["/add","/update","/bulk","/bupdate","/import","/trees","/location"].includes(h)?"on":""}">✏️</a>`:"");
  if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
   const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>';document.body.appendChild(d)};
  document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
@@ -369,6 +369,7 @@ function route(){
  if(a==="events")return viewEvents(app);
  if(a==="contacts")return viewContacts(app);
  if(a==="filter")return viewFilter(app);
+ if(a==="location"){if(canEdit())return viewLocation(app);location.hash="#/login";return}
  if(a==="bupdate"){if(canEdit())return viewBulkUpdate(app);location.hash="#/login";return}
  if(a==="bulk"){if(canEdit())return viewBulk(app);location.hash="#/login";return}
  if(a==="import"){if(canEdit())return viewImport(app);location.hash="#/login";return}
@@ -1575,6 +1576,48 @@ function viewBulkUpdate(app){
    const done=await buSave(pl,T,pm,BU.ed);
    if(done){BU.ed={};BU.en=[];BU.tps=[];BU.tc=0;BU.msg="Saved ✓";await load()}else{ok.disabled=false;$("#bu_bk").disabled=false}}};
  forLbl();cnt();drawPend();drawFam()}
+/* ---------- Location update (admin): one location for people and their households ---------- */
+const LC={loc:"",sel:[],ov:{}};
+/* a household = the picked person + spouse(s) (married) + unmarried children; deceased people are skipped */
+function lcGroups(sel){const seen=new Map(),groups=[],dead=p=>p.life_status==="deceased"||!!p.dod;
+ for(const id of sel){const s=P(id);if(!s)continue;const g={s,rows:[]};
+  const add=(p,rel,direct)=>{if(!p||dead(p))return;const o=seen.get(p.id);if(o){if(direct)o.direct=true;return}const r={p,rel,direct};seen.set(p.id,r);g.rows.push(r)};
+  add(s,"Selected",true);
+  marriages.filter(m=>m.status==="married"&&(m.person1_id===id||m.person2_id===id)).forEach(m=>add(P(m.person1_id===id?m.person2_id:m.person1_id),"Spouse",false));
+  people.filter(c=>(c.father_id===id||c.mother_id===id)&&!marriages.some(m=>m.person1_id===c.id||m.person2_id===c.id)).sort(cmp).forEach(c=>add(c,c.gender==="male"?"Son":c.gender==="female"?"Daughter":"Child",false));
+  groups.push(g)}
+ return groups}
+/* what would happen to one row for the typed location */
+function lcDecide(r,nw,ov){const cur=(r.p.current_location||"").trim();
+ if(!nw)return{cur,state:"none",on:false};
+ if(cur.toLowerCase()===nw.toLowerCase())return{cur,state:"same",on:false};
+ const def=!cur||r.direct;return{cur,state:cur?"replace":"set",on:ov[r.p.id]!==undefined?ov[r.p.id]:def}}
+function viewLocation(app){
+ const locs=[...new Set(people.map(p=>(p.current_location||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+ app.innerHTML=`<h2 style="margin:4px 0 6px">📍 Location</h2>
+ <div class="mut" style="margin-bottom:8px">Set one current location for a person and their household: spouse and unmarried children get it too. Add several people or families to give them all the same location.</div>
+ <input id="lc_l" list="lc_dl" placeholder="Current location, e.g. Chennai" value="${esc(LC.loc)}" autocomplete="off"><datalist id="lc_dl">${locs.map(l=>`<option value="${esc(l)}">`).join("")}</datalist>
+ <div class="bkw" style="margin-top:8px"><input id="lc_q" placeholder="Add a person: type a name" autocomplete="off"><div class="acb" id="lc_qb"></div></div>
+ <div id="lc_sel" class="chips" style="margin:6px 0"></div><div id="lc_pv"></div>
+ <div class="row" style="gap:8px;align-items:center;margin:10px 0"><button id="lc_go">Apply</button><span id="lc_m" class="mut"></span></div>`;
+ const say=(t,bad)=>{const m=$("#lc_m");m.textContent=t||"";m.style.color=bad?"var(--red)":""};
+ let todo=[];
+ const draw=()=>{const nw=LC.loc.trim(),G=lcGroups(LC.sel);let upd=0,keep=0;todo=[];
+  $("#lc_sel").innerHTML=LC.sel.map(id=>`<span class="chip on" data-rm="${id}">${esc(P(id).name)} ✕</span>`).join("");
+  $("#lc_sel").querySelectorAll("[data-rm]").forEach(c=>c.onclick=()=>{LC.sel=LC.sel.filter(x=>x!==+c.dataset.rm);draw()});
+  $("#lc_pv").innerHTML=G.length?`<div class="mut" style="margin:6px 0">Rows that already have a different location are left alone unless you tick them. Children living elsewhere stay as they are.</div>`+G.map(g=>`<div class="uh">${esc(g.s.name)} <span class="mut" style="font-weight:400">${esc(hintTxt(g.s))}</span></div>`+g.rows.map(r=>{
+   const d=lcDecide(r,nw,LC.ov);if(d.on){upd++;todo.push(r.p.id)}else if(d.state==="replace")keep++;
+   return`<label class="kr"><input type="checkbox" class="lc_c" data-id="${r.p.id}" ${d.on?"checked":""} ${d.state==="same"||d.state==="none"?"disabled":""}><span class="kn">${esc(r.p.name)} <span class="mut">${esc(r.rel)} · #${r.p.id}</span></span><span class="kc2">${esc(d.cur||"—")}${nw?` → <b style="color:var(--ink)">${esc(nw)}</b>`:""}${d.state==="same"?" · already set":""}</span></label>`}).join("")).join(""):`<div class="mut" style="margin:14px 0">Type a location, then add a person to see who will be updated.</div>`;
+  $("#lc_pv").querySelectorAll(".lc_c").forEach(c=>c.onchange=()=>{LC.ov[+c.dataset.id]=c.checked;draw()});
+  $("#lc_go").textContent="Apply"+(upd?" ("+upd+")":"");$("#lc_go").disabled=!upd||!nw;
+  if(G.length&&nw)say(keep?keep+" kept as they are (different location already set)":"")};
+ $("#lc_l").oninput=e=>{LC.loc=e.target.value;draw()};
+ acInit($("#lc_q"),$("#lc_qb"),x=>{if(x.pid&&!LC.sel.includes(x.pid))LC.sel.push(x.pid);$("#lc_q").value="";draw()},()=>{});
+ $("#lc_go").onclick=async()=>{const nw=LC.loc.trim();if(!nw||!todo.length)return;const b=$("#lc_go");b.disabled=true;say("Saving…");
+  const {error}=await sb.from("ft_people").update({current_location:nw}).in("id",todo);
+  if(error){b.disabled=false;return say("Could not save: "+error.message,1)}
+  LC.sel=[];LC.ov={};const n=todo.length;await load();const m=$("#lc_m");if(m)m.textContent="Updated "+n+" "+(n===1?"person":"people")+" ✓"};
+ draw()}
 function viewMembers(app){
  gf="all";kf="all";
  const chips=treeChips();
@@ -1799,8 +1842,8 @@ function viewUpdate(app){
  let uq="",ut="all";
  app.innerHTML=`<h2 style="margin:4px 0 10px">🔄 Update</h2>
  <div class="uh" style="margin-top:0">People</div>
- <div class="chips"><span class="chip" data-go="/bupdate">🧩 Family editor</span><span class="chip" data-go="/bulk">➕ Bulk add</span><span class="chip" data-go="/import">📥 Import</span></div>
- <div class="mut" style="margin:2px 0 8px">Family editor: pick a person, then edit and add their close relatives. Bulk add: add many people by relationship. Import: upload a CSV.</div>
+ <div class="chips"><span class="chip" data-go="/bupdate">🧩 Family editor</span><span class="chip" data-go="/bulk">➕ Bulk add</span><span class="chip" data-go="/import">📥 Import</span><span class="chip" data-go="/location">📍 Location</span></div>
+ <div class="mut" style="margin:2px 0 8px">Family editor: pick a person, then edit and add their close relatives. Bulk add: add many people by relationship. Import: upload a CSV. Location: set the current location for whole households.</div>
  <div class="uh">Fill from ancestors</div>
  <div class="chips"><span id="kothb" class="chip">🕉 Kothram</span><span id="nativb" class="chip">📍 Native</span><span id="brb" class="chip">🌿 Family line</span></div>
  <p class="mut" style="margin:2px 0 10px">Kothram, Native place and Family line are worked out from the root ancestors; you preview every change before applying.</p>
