@@ -69,6 +69,12 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .mc.full .ph{width:84px;height:84px;border-radius:14px;font-size:2.4rem}
 .ml{margin-top:2px}.ml b{color:var(--mut);font-weight:600;font-size:.8rem}
 .lk{color:var(--pri);font-weight:600}
+.bks{position:sticky;top:var(--hh,52px);z-index:9;background:var(--bg);padding:8px 0;border-bottom:1px solid var(--line)}
+.bkw{position:relative}
+.acb{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px #0003;max-height:260px;overflow-y:auto;display:none}
+.acb div{padding:8px 10px;border-bottom:1px solid var(--line)}
+.bke{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0;display:flex;gap:2px;align-items:flex-start}
+.bke .ic{border:0;background:none;color:var(--ink);padding:4px 6px;font-size:1.05rem}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .chip{white-space:nowrap;padding:5px 14px;border-radius:99px;background:#e7eef8;color:var(--pri);border:1px solid #b8c8e2;cursor:pointer;font-size:.9rem}
 .chip.on{background:var(--pri);color:#fff}
@@ -323,7 +329,7 @@ function renderNav(){
  
  $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${h==="/add"||h==="/update"?"on":""}">✏️</a>`:"");
  if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
-  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>'+(role==="admin"?'<a href="#/trees">🌳 Trees</a>':'')+'';document.body.appendChild(d)};
+  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>'+(role==="admin"?'<a href="#/import">📥 Import</a><a href="#/trees">🌳 Trees</a>':'')+'';document.body.appendChild(d)};
  document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
@@ -356,11 +362,13 @@ function route(){
  if(a==="events")return viewEvents(app);
  if(a==="contacts")return viewContacts(app);
  if(a==="filter")return viewFilter(app);
+ if(a==="bulk"){if(canEdit())return viewBulk(app);location.hash="#/login";return}
+ if(a==="import"){if(canEdit())return viewImport(app);location.hash="#/login";return}
  if(a==="trees"){if(role==="admin")return viewTrees(app);location.hash="#/login";return}
  if(a==="members")return viewMembers(app);
  if(a==="update"){if(canEdit())return viewUpdate(app);location.hash="#/login";return}
  if(a==="person")return viewPerson(app,+b);
- if(a==="add"){if(canEdit()){app.innerHTML="";openPerson()}else location.hash="#/login";return}
+ if(a==="add"){if(canEdit()){app.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Add member</h2><a class="lk" href="#/bulk">Bulk add ›</a></div><button id="addone">➕ Add a single member</button>';$("#addone").onclick=()=>openPerson();openPerson()}else location.hash="#/login";return}
  const tt=TREES.find(t=>t.slug===a);
  viewTree(app,tt?tt.key:TREES[0].key)}
 
@@ -1187,6 +1195,236 @@ function viewTrees(app){
  $("#nt_add").onclick=async()=>{const l=$("#nt_l").value.trim();let k=$("#nt_k").value.trim().toLowerCase();if(!k)k=l.toLowerCase();k=k.replace(/[^a-z0-9]/g,"");
   if(!l||!k)return msg("Enter a name and a key (letters/numbers only)");if(TREES.some(t=>t.key===k||t.slug===k))return msg("That key already exists");
   const {error}=await sb.from("ft_trees").insert({key:k,label:l,slug:k,sort:TREES.length+1});if(error)return msg("Could not add: "+error.message);msg("Added");await load();location.hash="#/"+k}}
+/* admin only: bulk import people (and the links between them) into a tree from a CSV / pasted sheet */
+const IMP_COLS=["ref","name","gender","father","mother","spouse","marriage_date","nickname","birth_order","dob","birth_time","birth_place","life_status","dod","death_place","education","profession","current_location","native_place","kothram","rasi","natchathiram","blood_group","phone","email","branch","is_placeholder","notes"];
+function parseCSV(t){t=t.replace(/^\uFEFF/,"");const d=(t.split("\n",1)[0]||"").includes("\t")?"\t":",";const R=[];let r=[],c="",q=false;
+ for(let i=0;i<t.length;i++){const ch=t[i];
+  if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++}else q=false}else c+=ch}
+  else if(ch==='"')q=true;
+  else if(ch===d){r.push(c);c=""}
+  else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&t[i+1]==="\n")i++;r.push(c);c="";R.push(r);r=[]}
+  else c+=ch}
+ if(c!==""||r.length){r.push(c);R.push(r)}
+ return R.filter(x=>x.some(v=>v.trim()!==""))}
+function viewImport(app){
+ const norm=v=>String(v||"").trim().toLowerCase();
+ let rows=[],skip=new Set(),ignored=[];
+ app.innerHTML=`<h2>📥 Import people</h2><div class="mut" style="margin-bottom:8px">Add many people to a tree at once. Save your sheet as CSV (UTF-8), or paste it below. The first line must be the column names.</div>
+ <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><select id="im_t">${TREES.map(t=>`<option value="${esc(t.key)}">${esc(t.label)}</option>`).join("")}</select><button class="alt" id="im_tpl">⬇ Template</button><input type="file" id="im_f" accept=".csv,.tsv,.txt"></div>
+ <textarea id="im_x" rows="5" placeholder="…or paste rows here" style="width:100%;margin-top:8px"></textarea>
+ <div class="row" style="gap:6px;margin-top:6px"><button id="im_p">Preview</button></div>
+ <details style="margin:10px 0"><summary>How links work · find an existing person</summary>
+  <div class="mut" style="margin:6px 0;white-space:normal"><b>ref</b> is a short label for a row (if blank, the name is used). In <b>father</b>, <b>mother</b> and <b>spouse</b> type the ref of another row in this sheet, or <b>#123</b> for someone already in the app (any tree). Leave blank when unknown. Several spouses: separate with ;</div>
+  <input id="im_q" placeholder="Search existing person by name" style="width:100%"><div id="im_r" class="mut" style="margin-top:6px"></div></details>
+ <div id="im_o"></div>`;
+ const msg=t=>{const e=$("#im_m");if(e)e.textContent=t;else $("#im_o").innerHTML=`<div class="mut">${esc(t)}</div>`};
+ $("#im_tpl").onclick=()=>{const H=["ref","name","gender","father","mother","spouse","marriage_date","dob","life_status","dod","birth_place","current_location","native_place","kothram","profession","notes"];
+  const X=[{ref:"raj",name:"Rajan",gender:"male",spouse:"lakshmi",dob:"1950",life_status:"alive"},{ref:"lakshmi",name:"Lakshmi",gender:"female",spouse:"raj",dob:"1955",life_status:"alive"},{ref:"kumar",name:"Kumar",gender:"male",father:"raj",mother:"lakshmi",dob:"1980"},{ref:"anitha",name:"Anitha",gender:"female",father:"#12",notes:"father is already in the app (#12)"}];
+  const q=v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
+  const b=new Blob(["\uFEFF"+[H.join(","),...X.map(o=>H.map(h=>q(o[h]||"")).join(","))].join("\n")+"\n"],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="tree_import_template.csv";a.click()};
+ $("#im_f").onchange=async e=>{const f=e.target.files[0];if(f){$("#im_x").value=await f.text();analyse()}};
+ $("#im_p").onclick=()=>analyse();
+ $("#im_q").oninput=e=>{const q=norm(e.target.value);if(q.length<2){$("#im_r").textContent="";return}
+  $("#im_r").innerHTML=people.filter(p=>norm(p.name).includes(q)).slice(0,15).map(p=>{const f=P(p.father_id);return`<div><b>#${p.id}</b> ${esc(p.name)} · ${esc(treeLabel(p.tree))}${f?" · s/o "+esc(f.name):""}</div>`}).join("")||"No match"};
+ let byKey=new Map();
+ const res=tok=>{tok=String(tok||"").trim();if(!tok)return null;const m=tok.match(/^#(\d+)$/);if(m)return P(+m[1])?{ex:+m[1]}:{bad:tok};
+  const j=byKey.get(norm(tok));return j!==undefined&&!skip.has(j)?{row:j}:{bad:tok}};
+ const label=x=>!x?"":x.bad?`<span style="color:#b00020">${esc(x.bad)}?</span>`:x.ex!==undefined?esc(P(x.ex).name)+" <span class=\"mut\">#"+x.ex+"</span>":esc(rows[x.row].v.name);
+ function analyse(){
+  const R=parseCSV($("#im_x").value);if(R.length<2){msg("Nothing to import. Paste or choose a file with a header line and at least one row.");return}
+  const H=R[0].map(norm);if(!H.includes("name")){msg('The first line needs a "name" column.');return}
+  ignored=H.filter(h=>h&&!IMP_COLS.includes(h));
+  rows=R.slice(1).map(a=>{const v={};H.forEach((h,j)=>{if(h)v[h]=(a[j]||"").trim()});return{v}}).filter(r=>r.v.name).map((r,i)=>({...r,i,key:norm(r.v.ref||r.v.name)}));
+  skip=new Set();draw()}
+ function draw(){
+  byKey=new Map();const dupKey=new Set();rows.forEach(r=>{if(byKey.has(r.key))dupKey.add(r.key);else byKey.set(r.key,r.i)});
+  const T=$("#im_t").value;let warn=0,links=0;
+  const body=rows.map(r=>{const w=[];const v=r.v;
+   if(dupKey.has(r.key))w.push("same ref used twice");
+   if(people.some(p=>p.tree===T&&norm(p.name)===norm(v.name)))w.push("name already in this tree");
+   const g=norm(v.gender);if(g&&!["m","male","f","female","other","ஆண்","பெண்"].includes(g))w.push("gender not understood");
+   const fa=res(v.father),mo=res(v.mother),sp=(v.spouse||"").split(";").map(res).filter(Boolean);
+   [fa,mo,...sp].forEach(x=>{if(x&&x.bad)w.push("unknown link "+x.bad);if(x&&x.row===r.i)w.push("links to itself")});
+   if(!skip.has(r.i)){links+=(fa&&!fa.bad?1:0)+(mo&&!mo.bad?1:0)+sp.filter(x=>!x.bad).length;if(w.length)warn++}
+   return`<tr style="${skip.has(r.i)?"opacity:.45":""}"><td><input type="checkbox" class="im_s" data-i="${r.i}" ${skip.has(r.i)?"checked":""} title="Skip this row"></td><td>${esc(v.name)}</td><td>${label(fa)}</td><td>${label(mo)}</td><td>${sp.map(label).join(", ")}</td><td style="color:#b26a00">${esc(w.join("; "))}</td></tr>`}).join("");
+  const n=rows.length-skip.size;
+  $("#im_o").innerHTML=`<div style="margin:8px 0"><b>${n}</b> people · <b>${links}</b> links · <b>${warn}</b> with warnings${ignored.length?`<div class="mut">Ignored columns: ${esc(ignored.join(", "))}</div>`:""}</div>
+   <div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:.9rem"><thead><tr style="text-align:left"><th>Skip</th><th>Name</th><th>Father</th><th>Mother</th><th>Spouse</th><th>Check</th></tr></thead><tbody>${body}</tbody></table></div>
+   <div class="row" style="gap:8px;margin:10px 0;align-items:center"><button id="im_go" ${n?"":"disabled"}>Import ${n} into ${esc(treeLabel(T))}</button><span id="im_m" class="mut"></span></div>
+   <div class="mut">Warnings do not stop the import. A link that is unknown is simply left blank. Tick Skip on a row you do not want.</div>`;
+  document.querySelectorAll(".im_s").forEach(c=>c.onchange=()=>{const i=+c.dataset.i;c.checked?skip.add(i):skip.delete(i);draw()});
+  $("#im_go").onclick=run}
+ $("#im_t").onchange=()=>{if(rows.length)draw()};
+ async function run(){
+  const T=$("#im_t").value,go=$("#im_go"),say=t=>$("#im_m").textContent=t;go.disabled=true;
+  const use=rows.filter(r=>!skip.has(r.i));
+  const pl=r=>{const v=r.v,o={name:v.name,tree:T},g=norm(v.gender);
+   if(["m","male","ஆண்"].includes(g))o.gender="male";else if(["f","female","பெண்"].includes(g))o.gender="female";else if(g==="other")o.gender="other";
+   for(const k of ["nickname","birth_time","birth_place","dob","dod","death_place","education","profession","current_location","native_place","kothram","rasi","natchathiram","blood_group","phone","email","branch","notes"])if(v[k])o[k]=v[k];
+   if(v.birth_order&&!isNaN(+v.birth_order))o.birth_order=+v.birth_order;
+   const ls=norm(v.life_status);if(["alive","deceased","unknown"].includes(ls))o.life_status=ls;else if(v.dod)o.life_status="deceased";
+   if(["yes","y","true","1"].includes(norm(v.is_placeholder)))o.is_placeholder=true;
+   return o};
+  const ids=new Array(rows.length).fill(null);let made=0;
+  for(let a=0;a<use.length;a+=50){const ch=use.slice(a,a+50);say("Adding people… "+made+"/"+use.length);
+   const {data,error}=await sb.from("ft_people").insert(ch.map(pl)).select("id,name");
+   if(error||!data||data.length!==ch.length||data.some((d,j)=>d.name!==ch[j].v.name)){say("Stopped after "+made+" people: "+(error?error.message:"unexpected reply")+". Check the tree before trying again.");await load();return}
+   ch.forEach((r,j)=>ids[r.i]=data[j].id);made+=ch.length}
+  const target=tok=>{const x=res(tok);return!x||x.bad?null:x.ex!==undefined?x.ex:ids[x.row]};
+  const ups=[];for(const r of use){const o={},f=target(r.v.father),m=target(r.v.mother);if(f)o.father_id=f;if(m)o.mother_id=m;if(f||m)ups.push([ids[r.i],o])}
+  for(let a=0;a<ups.length;a+=15){say("Linking parents… "+Math.min(a+15,ups.length)+"/"+ups.length);
+   const rr=await Promise.all(ups.slice(a,a+15).map(([id,o])=>sb.from("ft_people").update(o).eq("id",id)));const e=rr.find(x=>x.error);
+   if(e){say("People were added but linking stopped: "+e.error.message);await load();return}}
+  const have=new Set(marriages.map(m=>Math.min(m.person1_id,m.person2_id)+"-"+Math.max(m.person1_id,m.person2_id))),ms=[];
+  for(const r of use)for(const tok of (r.v.spouse||"").split(";")){const s=target(tok),me=ids[r.i];if(!s||s===me)continue;const k=Math.min(s,me)+"-"+Math.max(s,me);if(have.has(k))continue;have.add(k);
+   const o={person1_id:me,person2_id:s,status:"married"};if(r.v.marriage_date)o.marriage_date=r.v.marriage_date;ms.push(o)}
+  for(let a=0;a<ms.length;a+=50){say("Adding marriages…");const {error}=await sb.from("ft_marriages").insert(ms.slice(a,a+50));if(error){say("People and parents were added but marriages stopped: "+error.message);await load();return}}
+  await load();location.hash="#/"+treeSlug(T)}
+}
+/* ---------- bulk members (admin): add many people by relationship, preview, then save ---------- */
+const BK={en:[],tps:[],tc:0,ec:0,tree:null};
+const BREL=[["dad","Dad","male"],["mom","Mom","female"],["husband","Husband","male"],["wife","Wife","female"],["son","Son","male"],["daughter","Daughter","female"],["pgf","P-Grandpa","male"],["pgm","P-Grandma","female"],["mgf","M-Grandpa","male"],["mgm","M-Grandma","female"]];
+const bnorm=v=>String(v||"").trim().toLowerCase();
+const hintTxt=p=>{const f=P(p.father_id),m=P(p.mother_id),sp=spouseIds(p.id).map(P).filter(Boolean)[0];return f?"Father: "+f.name:m?"Mother: "+m.name:sp?"Spouse: "+sp.name:(p.branch||"")};
+/* works out exactly what would be written; nothing is saved here */
+function bkPlan(T){
+ const W=[],N=[],per=new Map();let hc=0;
+ const isE=k=>k&&k[0]==="E";
+ const get=k=>{let x=per.get(k);if(x)return x;
+  if(isE(k)){const p=P(+k.slice(1));x={key:k,id:p.id,name:p.name,gender:p.gender||"",isNew:false,ch:{}}}
+  else{const t=BK.tps.find(t=>t.tid===k);x={key:k,name:t.name,gender:t.gender||"",isNew:true,father:null,mother:null,order:null,ph:false,ch:{}}}
+  per.set(k,x);return x};
+ const fOf=x=>x.isNew?x.father:(x.ch.father||(P(x.id).father_id?"E"+P(x.id).father_id:null));
+ const mOf=x=>x.isNew?x.mother:(x.ch.mother||(P(x.id).mother_id?"E"+P(x.id).mother_id:null));
+ const dn=x=>x.name+(x.isNew?" ("+x.key+")":" #"+x.id);
+ const dk=k=>k?dn(get(k)):"";
+ const setSlot=(x,slot,key)=>{const cur=slot==="father"?fOf(x):mOf(x);
+  if(cur===key)return;
+  if(cur){W.push(`${dn(x)} already has ${slot} ${dk(cur)}; new ${slot} ${dk(key)} ignored`);return}
+  if(x.isNew)x[slot]=key;else x.ch[slot]=key};
+ const setG=(x,g)=>{if(!g)return;if(x.gender&&x.gender!==g){W.push(`${dn(x)}: gender ${g} conflicts with ${x.gender}; kept ${x.gender}`);return}
+  if(!x.gender){x.gender=g;if(!x.isNew)x.ch.gender=g}};
+ const setOrd=(x,v)=>{if(isNaN(v)){W.push(`${dn(x)}: order is not a number`);return}
+  if(x.isNew){if(x.order!=null&&x.order!==v)W.push(`${dn(x)}: order ${v} conflicts with ${x.order}; kept ${x.order}`);else x.order=v;return}
+  const cur=P(x.id).birth_order;if(cur!=null&&cur!==""&&+cur!==v){W.push(`${dn(x)} already has birth order ${cur}; ${v} ignored`);return}
+  if(cur==null||cur==="")x.ch.order=v};
+ const mar=[],mset=new Set(),exM=new Set(marriages.map(m=>Math.min(m.person1_id,m.person2_id)+"-"+Math.max(m.person1_id,m.person2_id)));
+ const E=BK.en;
+ for(const e of E){const s=get(e.sk);setG(s,e.g);if(!e.rel||!e.rk)continue;const r=get(e.rk),R=BREL.find(b=>b[0]===e.rel),imp=R[2];
+  setG(r,e.rg);if(!r.gender)setG(r,imp);
+  if(r.gender&&r.gender!==imp)W.push(`${dn(r)} is ${r.gender} but ${R[1]} expects ${imp}`);
+  if(e.rel==="dad")setSlot(s,"father",r.key);
+  else if(e.rel==="mom")setSlot(s,"mother",r.key);
+  else if(e.rel==="husband"||e.rel==="wife"){
+   const ids=isE(s.key)&&isE(r.key)?Math.min(s.id,r.id)+"-"+Math.max(s.id,r.id):null;
+   const k=[s.key,r.key].sort().join("|");
+   if(mset.has(k))continue;mset.add(k);
+   if(ids&&exM.has(ids)){N.push(`${dn(s)} and ${dn(r)} are already married in the app; skipped`);continue}
+   mar.push(s.gender==="female"&&r.gender==="male"?{a:r.key,b:s.key}:{a:s.key,b:r.key})}
+  else if(e.rel==="son"||e.rel==="daughter"){
+   if(s.gender==="male")setSlot(r,"father",s.key);else if(s.gender==="female")setSlot(r,"mother",s.key);
+   else W.push(`${dn(s)}: pick a gender so the ${e.rel} ${dn(r)} can be linked to father or mother`);
+   if(e.ord!==""&&e.ord!=null)setOrd(r,+e.ord)}}
+ for(const e of E){if(!["pgf","pgm","mgf","mgm"].includes(e.rel)||!e.rk)continue;const s=get(e.sk),r=get(e.rk);
+  const side=e.rel[0]==="p"?"father":"mother";let pk=side==="father"?fOf(s):mOf(s);
+  if(!pk){const x={key:"H"+(++hc),name:s.name+"'s "+side,gender:side==="father"?"male":"female",isNew:true,father:null,mother:null,order:null,ph:true,ch:{}};
+   per.set(x.key,x);pk=x.key;setSlot(s,side,pk);N.push(`${dn(s)}'s ${side} is not known, so a placeholder "${x.name}" (${x.key}) will be created`)}
+  const par=get(pk);setG(r,e.rg);setSlot(par,e.rel.endsWith("f")?"father":"mother",r.key)}
+ const all=[...per.values()],loops=[];
+ for(const x of all){const st=[fOf(x),mOf(x)].filter(Boolean),seen=new Set();
+  while(st.length){const k=st.pop();if(k===x.key){loops.push(dn(x));break}if(seen.has(k))continue;seen.add(k);const y=get(k);[fOf(y),mOf(y)].forEach(z=>z&&st.push(z))}}
+ loops.forEach(l=>W.push(`${l} would become their own ancestor (loop)`));
+ const ins=all.filter(x=>x.isNew);
+ ins.filter(x=>!x.ph).forEach(x=>{const d=people.find(p=>p.tree===T&&bnorm(p.name)===bnorm(x.name));if(d)W.push(`${dn(x)}: a person with this name already exists in this tree (#${d.id}). Pick them from the list if it is the same person`)});
+ const upd=all.filter(x=>!x.isNew&&Object.keys(x.ch).length);
+ return{ins,upd,mar,W,N,loops,dn,dk,fOf,mOf,get}}
+function viewBulk(app){
+ if(!BK.tree)BK.tree=TREES.some(t=>t.key===curTree)?curTree:TREES[0].key;
+ const F={pid:null,tid:null,rpid:null,rtid:null};
+ const gopt='<option value="">Gender</option><option value="male">Male</option><option value="female">Female</option>';
+ app.innerHTML=`<div id="bk_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Bulk add</h2><a class="lk" href="#/add">Single member ›</a></div>
+ <div class="bks">
+  <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><span class="mut" style="white-space:nowrap">New people go to</span><select id="bk_t">${TREES.map(t=>`<option value="${esc(t.key)}" ${t.key===BK.tree?"selected":""}>${esc(t.label)}</option>`).join("")}</select></div>
+  <div style="display:flex;gap:6px"><input id="bk_id" readonly placeholder="ID" style="width:84px;flex:none;background:#eef2f7"><div class="bkw" style="flex:1"><input id="bk_n" placeholder="Name *" autocomplete="off"><div class="acb" id="bk_nb"></div></div></div>
+  <div style="display:flex;gap:6px;margin-top:6px"><select id="bk_g" style="flex:1">${gopt}</select><select id="bk_r" style="flex:1"><option value="">Relationship</option>${BREL.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join("")}</select></div>
+  <div style="display:flex;gap:6px;margin-top:6px"><div class="bkw" style="flex:1"><input id="bk_rn" placeholder="Relation name" autocomplete="off"><div class="acb" id="bk_rb"></div></div><select id="bk_rg" style="width:112px;flex:none">${gopt.replace("Gender","Rel. gender")}</select></div>
+  <div id="bk_rh" class="mut" style="font-size:.75rem;min-height:1em"></div>
+  <div style="display:flex;gap:6px;margin-top:4px;align-items:center"><input id="bk_o" inputmode="decimal" placeholder="Order" style="width:84px;flex:none"><button id="bk_add" style="flex:1">Add</button><button id="bk_sub" class="alt" style="flex:1">Submit</button></div>
+  <div id="bk_m" class="mut" style="margin-top:4px"></div>
+ </div><div id="bk_l"></div></div><div id="bk_p" style="display:none"></div>`;
+ const say=(t,bad)=>{const m=$("#bk_m");m.textContent=t||"";m.style.color=bad?"var(--red)":""};
+ const known=(pid,tid)=>pid?(P(pid)||{}).gender:(BK.tps.find(t=>t.tid===tid)||{}).gender;
+ const mkAC=(inp,box,pick,clear)=>{const hide=()=>{box.style.display="none"};
+  const items=q=>BK.tps.filter(t=>bnorm(t.name).includes(q)).map(t=>({tid:t.tid,name:t.name,gender:t.gender,sub:"new in this batch · "+t.tid})).concat(
+   people.filter(p=>bnorm(p.name).includes(q)).sort((a,b)=>(bnorm(a.name).startsWith(q)?0:1)-(bnorm(b.name).startsWith(q)?0:1)||(a.name||"").localeCompare(b.name||"")).map(p=>({pid:p.id,name:p.name,gender:p.gender,sub:[hintTxt(p),treeLabel(p.tree),"#"+p.id].filter(Boolean).join(" · ")})));
+  const show=()=>{const q=bnorm(inp.value);if(!q){hide();return}const L=items(q),S=L.slice(0,60);
+   box.innerHTML=(S.length?S.map((x,i)=>`<div data-i="${i}"><b>${esc(x.name)}</b> <span class="mut">${esc(x.sub)}</span></div>`).join(""):`<div class="mut">No match: will be added as a new person</div>`)+(L.length>60?`<div class="mut">Showing 60 of ${L.length}; keep typing</div>`:"");
+   box.style.display="block";box._L=S};
+  inp.oninput=()=>{clear();show()};inp.onfocus=show;inp.onblur=()=>setTimeout(hide,150);
+  box.onpointerdown=e=>{const d=e.target.closest("[data-i]");if(!d)return;e.preventDefault();const x=box._L[+d.dataset.i];inp.value=x.name;pick(x);hide()}};
+ const gSet=(sel,g)=>{if(g==="male"||g==="female")sel.value=g};
+ mkAC($("#bk_n"),$("#bk_nb"),x=>{F.pid=x.pid||null;F.tid=x.tid||null;$("#bk_id").value=x.pid?"#"+x.pid:x.tid;gSet($("#bk_g"),x.gender)},()=>{F.pid=F.tid=null;$("#bk_id").value=""});
+ mkAC($("#bk_rn"),$("#bk_rb"),x=>{F.rpid=x.pid||null;F.rtid=x.tid||null;$("#bk_rh").textContent=x.pid?"Existing person #"+x.pid:"Already added in this batch: "+x.tid;gSet($("#bk_rg"),x.gender)},()=>{F.rpid=F.rtid=null;$("#bk_rh").textContent=$("#bk_rn").value.trim()?"Will be added as a new person":""});
+ $("#bk_r").onchange=()=>{const r=BREL.find(b=>b[0]===$("#bk_r").value);if(!r)return;const g=known(F.rpid,F.rtid);$("#bk_rg").value=g==="male"||g==="female"?g:r[2]};
+ $("#bk_t").onchange=e=>{BK.tree=e.target.value};
+ const keyOf=(pid,tid)=>pid?"E"+pid:tid;
+ const nameOfKey=k=>k[0]==="E"?(P(+k.slice(1))||{}).name:(BK.tps.find(t=>t.tid===k)||{}).name;
+ const mkTmp=(name,g)=>{const t={tid:"T"+(++BK.tc),name,gender:g||""};BK.tps.push(t);return t.tid};
+ const cnt=()=>{$("#bk_sub").textContent="Submit ("+BK.en.length+")"};
+ const clearForm=()=>{["bk_id","bk_n","bk_rn","bk_o"].forEach(i=>$("#"+i).value="");["bk_g","bk_r","bk_rg"].forEach(i=>$("#"+i).value="");F.pid=F.tid=F.rpid=F.rtid=null;$("#bk_rh").textContent=""};
+ $("#bk_add").onclick=()=>{
+  const name=$("#bk_n").value.trim().replace(/^\s*late\s+/i,""),rel=$("#bk_r").value,rname=$("#bk_rn").value.trim().replace(/^\s*late\s+/i,""),g=$("#bk_g").value,rg=$("#bk_rg").value,ord=$("#bk_o").value.trim();
+  if(!name)return say("Name is required",1);
+  if(!!rel!==!!rname)return say(rel?"Relation name is needed for this relationship":"Pick a relationship for the relation name",1);
+  if(ord&&isNaN(+ord))return say("Order must be a number like 1, 2 or 1.1",1);
+  let sk=keyOf(F.pid,F.tid);if(!sk){const tid=mkTmp(name,g);sk=tid}else if(g&&F.tid){const t=BK.tps.find(t=>t.tid===F.tid);if(t&&!t.gender)t.gender=g}
+  let rk=null;if(rname){rk=keyOf(F.rpid,F.rtid);if(!rk)rk=mkTmp(rname,rg);else if(rg&&F.rtid){const t=BK.tps.find(t=>t.tid===F.rtid);if(t&&!t.gender)t.gender=rg}}
+  if(rk&&rk===sk)return say("A person cannot be related to themselves",1);
+  const t0=BK.tps.find(t=>t.tid===sk);if(t0&&g&&!t0.gender)t0.gender=g;
+  BK.en.push({e:++BK.ec,sk,sname:name,g,rel,rk,rname,ord,rg});
+  clearForm();say("");cnt();draw();$("#bk_n").focus()};
+ const lbl=r=>(BREL.find(b=>b[0]===r)||[0,r])[1];
+ const draw=()=>{const L=BK.en.slice().reverse();
+  $("#bk_l").innerHTML=L.length?`<div class="mut" style="margin:8px 0 2px">${L.length} ${L.length===1?"entry":"entries"}, latest first</div>`+L.map(e=>{
+   const sid=e.sk[0]==="E"?"ID #"+e.sk.slice(1):"",stmp=e.sk[0]==="T"?e.sk:"",rid=e.rk?(e.rk[0]==="E"?"ID #"+e.rk.slice(1):e.rk):"";
+   const small=[sid,stmp,e.g&&(e.g==="male"?"Male":"Female"),e.ord&&"order "+e.ord,e.rg&&"rel. "+(e.rg==="male"?"Male":"Female"),rid&&"rel. "+rid].filter(Boolean).join(" · ");
+   return`<div class="bke"><div style="flex:1;min-width:0"><div><b>${esc(e.sname)}</b>${e.rel?` <span class="mut">${esc(lbl(e.rel))}</span> <b>${esc(e.rname)}</b>`:` <span class="mut">(person only)</span>`}</div><div class="mut" style="font-size:.75rem;overflow-wrap:anywhere">${esc(small)}</div></div>
+   <button class="ic" data-a="rep" data-e="${e.e}" title="Repeat this name">🔁</button><button class="ic" data-a="more" data-e="${e.e}" title="More fields">⋯</button><button class="ic" data-a="del" data-e="${e.e}" title="Remove">🗑</button></div>`}).join(""):`<div class="mut" style="margin:14px 0">Nothing added yet. Name is required; a relationship needs a relation name.</div>`;
+  $("#bk_l").querySelectorAll(".ic").forEach(b=>b.onclick=()=>{const e=BK.en.find(x=>x.e===+b.dataset.e);if(!e)return;
+   if(b.dataset.a==="more")return say("More person and marriage fields will come later");
+   if(b.dataset.a==="del"){BK.en=BK.en.filter(x=>x!==e);BK.tps=BK.tps.filter(t=>BK.en.some(x=>x.sk===t.tid||x.rk===t.tid));cnt();draw();return}
+   clearForm();say("");if(e.sk[0]==="E"){F.pid=+e.sk.slice(1);$("#bk_id").value="#"+F.pid}else{F.tid=e.sk;$("#bk_id").value=e.sk}
+   $("#bk_n").value=nameOfKey(e.sk)||e.sname;$("#bk_r").focus();window.scrollTo(0,0)})};
+ const back=()=>{$("#bk_p").style.display="none";$("#bk_main").style.display=""};
+ $("#bk_sub").onclick=()=>{if(!BK.en.length)return say("Add at least one entry first",1);say("");
+  const T=BK.tree,pl=bkPlan(T),{dn,dk}=pl;const tbl=(h,rows)=>rows.length?`<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:.88rem"><thead><tr style="text-align:left">${h.map(x=>`<th style="padding:4px 8px 4px 0">${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td style="padding:4px 8px 4px 0;vertical-align:top">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`:`<div class="mut">None</div>`;
+  const chg=x=>[x.ch.father&&"father → "+dk(x.ch.father),x.ch.mother&&"mother → "+dk(x.ch.mother),x.ch.order!=null&&"birth order → "+x.ch.order,x.ch.gender&&"gender → "+x.ch.gender].filter(Boolean).join("; ");
+  const total=pl.ins.length+pl.upd.length+pl.mar.length;
+  $("#bk_main").style.display="none";const P2=$("#bk_p");P2.style.display="";
+  P2.innerHTML=`<h2 style="margin:.1em 0">Preview</h2><div class="mut">Nothing is saved until you confirm.</div>
+  ${pl.W.length?`<div class="status warn"><b>Check these</b>${pl.W.map(w=>`<div>• ${esc(w)}</div>`).join("")}</div>`:""}
+  ${pl.N.length?`<div class="status">${pl.N.map(w=>`<div>• ${esc(w)}</div>`).join("")}</div>`:""}
+  <h3 style="margin:12px 0 4px">ft_people: new rows (${pl.ins.length})</h3>${tbl(["Ref","Name","Gender","Tree","Father","Mother","Order","Placeholder"],pl.ins.map(x=>[x.key,x.name,x.gender,treeLabel(T),dk(x.father),dk(x.mother),x.order==null?"":x.order,x.ph?"yes":""]))}
+  <h3 style="margin:12px 0 4px">ft_people: existing rows changed (${pl.upd.length})</h3>${tbl(["ID","Name","Change"],pl.upd.map(x=>["#"+x.id,x.name,chg(x)]))}
+  <h3 style="margin:12px 0 4px">ft_marriages: new rows (${pl.mar.length})</h3>${tbl(["Person 1","Person 2","Status"],pl.mar.map(m=>[dk(m.a),dk(m.b),"married"]))}
+  <div class="row" style="gap:8px;margin:14px 0;align-items:center"><button class="alt" id="bk_bk">‹ Back</button><button id="bk_ok" ${total&&!pl.loops.length?"":"disabled"}>Confirm and save</button><span id="bk_pm" class="mut"></span></div>`;
+  window.scrollTo(0,0);$("#bk_bk").onclick=back;
+  $("#bk_ok").onclick=async()=>{const ok=$("#bk_ok"),pm=$("#bk_pm");ok.disabled=true;$("#bk_bk").disabled=true;
+   const ids=new Map(),idOf=k=>k[0]==="E"?+k.slice(1):ids.get(k),stop=t=>{pm.textContent=t;pm.style.color="var(--red)"};
+   for(let a=0;a<pl.ins.length;a+=50){const ch=pl.ins.slice(a,a+50);pm.textContent="Adding people… "+a+"/"+pl.ins.length;
+    const {data,error}=await sb.from("ft_people").insert(ch.map(x=>{const o={name:x.name,tree:T};if(x.gender)o.gender=x.gender;if(x.order!=null)o.birth_order=x.order;if(x.ph)o.is_placeholder=true;return o})).select("id,name");
+    if(error||!data||data.length!==ch.length||data.some((d,j)=>d.name!==ch[j].name)){stop("Stopped after "+a+" people: "+(error?error.message:"unexpected reply")+". Check the tree before trying again.");await load();return}
+    ch.forEach((x,j)=>ids.set(x.key,data[j].id))}
+   const ups=[];
+   for(const x of pl.ins){const o={};if(x.father)o.father_id=idOf(x.father);if(x.mother)o.mother_id=idOf(x.mother);if(Object.keys(o).length)ups.push([ids.get(x.key),o])}
+   for(const x of pl.upd){const o={};if(x.ch.father)o.father_id=idOf(x.ch.father);if(x.ch.mother)o.mother_id=idOf(x.ch.mother);if(x.ch.order!=null)o.birth_order=x.ch.order;if(x.ch.gender)o.gender=x.ch.gender;ups.push([x.id,o])}
+   for(let a=0;a<ups.length;a+=15){pm.textContent="Linking… "+Math.min(a+15,ups.length)+"/"+ups.length;
+    const rr=await Promise.all(ups.slice(a,a+15).map(([id,o])=>sb.from("ft_people").update(o).eq("id",id)));const er=rr.find(x=>x.error);
+    if(er){stop("People were added but linking stopped: "+er.error.message);await load();return}}
+   for(let a=0;a<pl.mar.length;a+=50){pm.textContent="Adding marriages…";const {error}=await sb.from("ft_marriages").insert(pl.mar.slice(a,a+50).map(m=>({person1_id:idOf(m.a),person2_id:idOf(m.b),status:"married"})));
+    if(error){stop("People and links were saved but marriages stopped: "+error.message);await load();return}}
+   BK.en=[];BK.tps=[];BK.tc=0;await load();location.hash="#/"+treeSlug(T)}};
+ cnt();draw()}
 function viewMembers(app){
  gf="all";if(!kOn())kf="all";
  const chips=treeChips();
@@ -1496,9 +1734,9 @@ function collect(F,errs){const o={};
    else if(t==="person"||t==="num")v=Number(v);
    else if(t==="date"&&!/^(\d{4}(-\d{2}(-\d{2})?)?|--\d{2}-\d{2})$/.test(v))errs.push(l+": use YYYY-MM-DD, YYYY-MM, YYYY or --MM-DD")}
   o[k]=v});return o}
-function openForm(title,F,rec,onSave){
+function openForm(title,F,rec,onSave,extra){
  const d=$("#dlg");
- d.innerHTML=`<h2>${title}</h2><div id="msg" class="mut" style="color:var(--red)"></div><div class="two">${F.map(f=>{const w=["area","photo"].includes(f[2]);return`<div data-k="${f[0]}" style="${w?"grid-column:1/-1":""}">${fieldHtml(f,rec[f[0]]??"")}</div>`}).join("")}</div>
+ d.innerHTML=`${extra?`<div style="display:flex;justify-content:space-between;align-items:center"><h2>${title}</h2>${extra}</div>`:`<h2>${title}</h2>`}<div id="msg" class="mut" style="color:var(--red)"></div><div class="two">${F.map(f=>{const w=["area","photo"].includes(f[2]);return`<div data-k="${f[0]}" style="${w?"grid-column:1/-1":""}">${fieldHtml(f,rec[f[0]]??"")}</div>`}).join("")}</div>
  <div class="row" style="justify-content:flex-end"><button class="alt" id="cx">Cancel</button><button id="sv">Save</button></div>`;
  $("#cx").onclick=()=>d.close();
  $("#sv").onclick=async()=>{const errs=[];const o=collect(F,errs);
@@ -1528,7 +1766,7 @@ function openPerson(id,preset){
   if(!o.name)return"Name is required";
   const r=id?await sb.from("ft_people").update(o).eq("id",id).select().single():await sb.from("ft_people").insert(o).select().single();
   if(r.error)return r.error.message;
-  await load();location.hash="#/person/"+r.data.id})}
+  await load();location.hash="#/person/"+r.data.id},(!id&&!preset)?'<a class="lk" href="#/bulk" onclick="document.getElementById(\'dlg\').close()">Bulk add ›</a>':"")}
 function addChild(pid){const p=P(pid);
  openPerson(null,{life_status:"unknown",tree:p.tree,[p.gender==="female"?"mother_id":"father_id"]:pid,branch:p.branch})}
 async function delPerson(id){
