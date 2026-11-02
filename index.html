@@ -334,9 +334,9 @@ function renderNav(){
  const h=location.hash.slice(1)||"/";
  const items=[...TREES.map(t=>["/"+t.slug,t.label]),["/members","Members"]];
  
- $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${h==="/add"||h==="/update"?"on":""}">✏️</a>`:"");
+ $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${["/add","/update","/bulk","/bupdate","/import","/trees"].includes(h)?"on":""}">✏️</a>`:"");
  if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
-  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>'+(role==="admin"?'<a href="#/bupdate">🧩 Bulk update</a><a href="#/import">📥 Import</a><a href="#/trees">🌳 Trees</a>':'')+'';document.body.appendChild(d)};
+  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>';document.body.appendChild(d)};
  document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
@@ -1363,7 +1363,7 @@ function viewBulk(app){
  if(!BK.tree)BK.tree=TREES.some(t=>t.key===curTree)?curTree:TREES[0].key;
  const F={pid:null,tid:null,rpid:null,rtid:null};
  const gopt='<option value="">Gender</option><option value="male">Male</option><option value="female">Female</option>';
- app.innerHTML=`<div id="bk_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Bulk add</h2><span><a class="lk" href="#/add">Single ›</a> &nbsp; <a class="lk" href="#/bupdate">Bulk update ›</a></span></div>
+ app.innerHTML=`<div id="bk_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Bulk add</h2><span><a class="lk" href="#/add">Single ›</a> &nbsp; <a class="lk" href="#/bupdate">Family editor ›</a></span></div>
  <div class="bks">
   <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><span class="mut" style="white-space:nowrap">New people go to</span><select id="bk_t">${TREES.map(t=>`<option value="${esc(t.key)}" ${t.key===BK.tree?"selected":""}>${esc(t.label)}</option>`).join("")}</select></div>
   <div style="display:flex;gap:6px"><input id="bk_id" readonly placeholder="ID" style="width:84px;flex:none;background:#eef2f7"><div class="bkw" style="flex:1"><input id="bk_n" placeholder="Name *" autocomplete="off"><div class="acb" id="bk_nb"></div></div></div>
@@ -1479,7 +1479,7 @@ function viewBulkUpdate(app){
  if(!BU.tree)BU.tree=TREES.some(t=>t.key===curTree)?curTree:TREES[0].key;
  const gopt='<option value="">Gender</option><option value="male">Male</option><option value="female">Female</option>';
  const F={rpid:null,rtid:null};
- app.innerHTML=`<div id="bu_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Bulk update</h2><a class="lk" href="#/bulk">Bulk add ›</a></div>
+ app.innerHTML=`<div id="bu_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Family editor</h2><a class="lk" href="#/bulk">Bulk add ›</a></div>
  <div class="bks"><div class="bkw"><input id="bu_q" placeholder="Pick a person: type a name" autocomplete="off"><div class="acb" id="bu_qb"></div></div>
   <div style="display:flex;gap:6px;margin-top:6px;align-items:center"><button id="bu_sub" style="flex:1">Review &amp; save</button><span id="bu_m" class="mut" style="flex:1.4"></span></div></div>
  <details id="bu_ad" style="margin:8px 0"><summary><b>Add a new relative</b></summary>
@@ -1798,9 +1798,15 @@ function openBranch(){
 function viewUpdate(app){
  let uq="",ut="all";
  app.innerHTML=`<h2 style="margin:4px 0 10px">🔄 Update</h2>
+ <div class="uh" style="margin-top:0">People</div>
+ <div class="chips"><span class="chip" data-go="/bupdate">🧩 Family editor</span><span class="chip" data-go="/bulk">➕ Bulk add</span><span class="chip" data-go="/import">📥 Import</span></div>
+ <div class="mut" style="margin:2px 0 8px">Family editor: pick a person, then edit and add their close relatives. Bulk add: add many people by relationship. Import: upload a CSV.</div>
+ <div class="uh">Fill from ancestors</div>
  <div class="chips"><span id="kothb" class="chip">🕉 Kothram</span><span id="nativb" class="chip">📍 Native</span><span id="brb" class="chip">🌿 Family line</span></div>
  <p class="mut" style="margin:2px 0 10px">Kothram, Native place and Family line are worked out from the root ancestors; you preview every change before applying.</p>
- <b>Status: Alive / Deceased</b>
+ ${role==="admin"?`<div class="uh">Setup</div><div class="chips"><span class="chip" data-go="/trees">🌳 Trees</span></div>`:""}
+ <div class="uh">Status</div>
+ <div class="mut" style="margin:0 0 4px">Alive / Deceased: tick people below, then Set status.</div>
  <div class="sb"><input id="uq" placeholder="Search name or ID…"><button id="uqc" class="qc" aria-label="Clear search" hidden>✕</button></div>
  <div class="chips">${treeChips().map(([k,l])=>`<span class="chip ${k==="all"?"on":""}" data-u="${k}">${l}</span>`).join("")}<span id="ucnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
  <div id="ulist"></div>
@@ -1820,6 +1826,7 @@ function viewUpdate(app){
  $("#unone").onclick=()=>{sel.clear();draw()};
  $("#ugo").onclick=openBulk;
  $("#kothb").onclick=openKothram;$("#nativb").onclick=openNative;$("#brb").onclick=openBranch;
+ document.querySelectorAll(".chip[data-go]").forEach(c=>c.onclick=()=>{location.hash="#"+c.dataset.go});
  draw()}
 
 
