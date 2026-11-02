@@ -323,7 +323,7 @@ function renderNav(){
  
  $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${h==="/add"||h==="/update"?"on":""}">✏️</a>`:"");
  if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
-  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>';document.body.appendChild(d)};
+  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>'+(role==="admin"?'<a href="#/trees">🌳 Trees</a>':'')+'';document.body.appendChild(d)};
  document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
@@ -356,6 +356,7 @@ function route(){
  if(a==="events")return viewEvents(app);
  if(a==="contacts")return viewContacts(app);
  if(a==="filter")return viewFilter(app);
+ if(a==="trees"){if(role==="admin")return viewTrees(app);location.hash="#/login";return}
  if(a==="members")return viewMembers(app);
  if(a==="update"){if(canEdit())return viewUpdate(app);location.hash="#/login";return}
  if(a==="person")return viewPerson(app,+b);
@@ -1175,6 +1176,17 @@ function rec(p,full){
 const gOn=()=>!!role&&(canEdit()||people.some(p=>p.gender));
 const kOn=()=>!!role&&(canEdit()||people.some(p=>p.kothram));
 let selMode=false;const sel=new Set();let gf="all",kf="all";
+/* admin only: add or rename family trees (stored in ft_trees; needs the admin write policy) */
+function viewTrees(app){
+ const rows=TREES.map(t=>`<div class="row" style="gap:6px;margin:6px 0;align-items:center"><span class="mut" style="width:90px">${esc(t.key)}</span><input class="tl" data-k="${esc(t.key)}" value="${esc(t.label)}" style="flex:1"><button class="alt tsave" data-k="${esc(t.key)}">Save</button></div>`).join("");
+ app.innerHTML=`<h2>🌳 Trees</h2><div class="mut" style="margin-bottom:6px">Each tree appears as a tab. The key cannot be changed later.</div>${rows}
+ <h3 style="margin:14px 0 4px">Add a tree</h3><div class="row" style="gap:6px;flex-wrap:wrap"><input id="nt_l" placeholder="Name shown (e.g. Kumar)" style="flex:1"><input id="nt_k" placeholder="key (a-z, no spaces)" style="flex:1"><button id="nt_add">Add tree</button></div><div id="nt_m" class="mut" style="margin-top:8px"></div>`;
+ const msg=t=>$("#nt_m").textContent=t;
+ app.querySelectorAll(".tsave").forEach(b=>b.onclick=async()=>{const k=b.dataset.k,v=app.querySelector('.tl[data-k="'+k+'"]').value.trim();if(!v)return msg("Name cannot be empty");
+  const {error}=await sb.from("ft_trees").update({label:v}).eq("key",k);if(error)return msg("Could not save: "+error.message);msg("Saved");load()});
+ $("#nt_add").onclick=async()=>{const l=$("#nt_l").value.trim();let k=$("#nt_k").value.trim().toLowerCase();if(!k)k=l.toLowerCase();k=k.replace(/[^a-z0-9]/g,"");
+  if(!l||!k)return msg("Enter a name and a key (letters/numbers only)");if(TREES.some(t=>t.key===k||t.slug===k))return msg("That key already exists");
+  const {error}=await sb.from("ft_trees").insert({key:k,label:l,slug:k,sort:TREES.length+1});if(error)return msg("Could not add: "+error.message);msg("Added");await load();location.hash="#/"+k}}
 function viewMembers(app){
  gf="all";if(!kOn())kf="all";
  const chips=treeChips();
