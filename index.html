@@ -1576,11 +1576,10 @@ function viewBulkUpdate(app){
    if(done){BU.ed={};BU.en=[];BU.tps=[];BU.tc=0;BU.msg="Saved ✓";await load()}else{ok.disabled=false;$("#bu_bk").disabled=false}}};
  forLbl();cnt();drawPend();drawFam()}
 function viewMembers(app){
- gf="all";if(!kOn())kf="all";
+ gf="all";kf="all";
  const chips=treeChips();
  app.innerHTML=`<div class="sb"><input id="q" placeholder="Search name, place, profession, ID…" value="${esc(q)}"><button id="qc" class="qc" aria-label="Clear search" hidden>✕</button></div>
  <div class="chips">${chips.map(([k,l])=>`<span class="chip ${mf===k?"on":""}" data-k="${k}">${l}</span>`).join("")}<span id="cnt" class="mut" style="margin-left:auto;align-self:center"></span></div>
- ${kOn()?`<select id="kf" aria-label="Filter by kothram" style="margin:2px 0 8px"></select>`:""}
  <div id="list"></div>
  <div id="bulk" class="bulk" hidden><b id="bc"></b><button id="ball" class="alt">All shown</button><button id="bnone" class="alt">Clear</button><button id="bgo">Set status…</button></div>`;
  let shown=[];
@@ -1589,11 +1588,7 @@ function viewMembers(app){
   const gm=p=>p.gender==="male"?"male":p.gender==="female"?"female":"none";
   const tp=people.filter(p=>mf==="all"||p.tree===mf);
   if(gOn())document.querySelectorAll(".chip[data-g]").forEach(c=>{const k=c.dataset.g;c.textContent=c.dataset.l+" ("+(k==="all"?tp.length:tp.filter(p=>gm(p)===k).length)+")";c.classList.toggle("on",gf===k)});
-  const kc={};tp.forEach(p=>{const k=(p.kothram||"").trim()||"__none";kc[k]=(kc[k]||0)+1});
-  if(kf!=="all"&&!kc[kf])kf="all";
-  if(kOn())$("#kf").innerHTML=`<option value="all">All kothrams (${tp.length})</option>`+Object.keys(kc).filter(k=>k!=="__none").sort((a,b)=>kc[b]-kc[a]||a.localeCompare(b)).map(k=>`<option value="${esc(k)}" ${kf===k?"selected":""}>${esc(k)} (${kc[k]})</option>`).join("")+(kc.__none?`<option value="__none" ${kf==="__none"?"selected":""}>⚠ Not set (${kc.__none})</option>`:"");
-  const km=p=>kf==="all"||(kf==="__none"?!(p.kothram||"").trim():(p.kothram||"").trim()===kf);
-  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(gf==="all"||gm(p)===gf)&&km(p)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
+  const r=people.filter(p=>(mf==="all"||p.tree===mf)&&(gf==="all"||gm(p)===gf)&&(!t||[dispName(p),p.name,p.nickname,p.native_place,p.current_location,p.profession,String(p.id)].some(v=>v&&String(v).toLowerCase().includes(t))))
    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   shown=r.map(p=>p.id);
   $("#cnt").textContent=`${r.length} of ${people.length}`;
@@ -1601,7 +1596,6 @@ function viewMembers(app){
   bar()};
  $("#q").oninput=e=>{q=e.target.value;draw()};
  $("#qc").onclick=()=>{q="";$("#q").value="";$("#q").focus();draw()};
- if(kOn())$("#kf").onchange=e=>{kf=e.target.value;draw()};
  document.querySelectorAll(".chip[data-k]").forEach(c=>c.onclick=()=>{mf=c.dataset.k;document.querySelectorAll(".chip[data-k]").forEach(x=>x.classList.toggle("on",x===c));draw()});
  if(canEdit()){
   $("#list").onchange=e=>{const c=e.target;if(c.classList&&c.classList.contains("sc")){const id=+c.dataset.id;c.checked?sel.add(id):sel.delete(id);bar()}};
