@@ -1298,10 +1298,11 @@ function bkPlan(T){
  const mOf=x=>x.isNew?x.mother:(x.ch.mother||(P(x.id).mother_id?"E"+P(x.id).mother_id:null));
  const dn=x=>x.name+(x.isNew?" ("+x.key+")":" #"+x.id);
  const dk=k=>k?dn(get(k)):"";
+ const touched=new Set();
  const setSlot=(x,slot,key)=>{const cur=slot==="father"?fOf(x):mOf(x);
   if(cur===key)return;
   if(cur){W.push(`${dn(x)} already has ${slot} ${dk(cur)}; new ${slot} ${dk(key)} ignored`);return}
-  if(x.isNew)x[slot]=key;else x.ch[slot]=key};
+  touched.add(x.key);if(x.isNew)x[slot]=key;else x.ch[slot]=key};
  const setG=(x,g)=>{if(!g)return;if(x.gender&&x.gender!==g){W.push(`${dn(x)}: gender ${g} conflicts with ${x.gender}; kept ${x.gender}`);return}
   if(!x.gender){x.gender=g;if(!x.isNew)x.ch.gender=g}};
  const setOrd=(x,v)=>{if(isNaN(v)){W.push(`${dn(x)}: order is not a number`);return}
@@ -1310,6 +1311,15 @@ function bkPlan(T){
   if(cur==null||cur==="")x.ch.order=v};
  const mar=[],mset=new Set(),exM=new Set(marriages.map(m=>Math.min(m.person1_id,m.person2_id)+"-"+Math.max(m.person1_id,m.person2_id)));
  const E=BK.en;
+ /* when one parent is linked to a child, link the parent's only spouse as the other parent too (several spouses: left blank, with a warning) */
+ const spousesOf=k=>{const out=new Set();if(isE(k)){const id=+k.slice(1);marriages.forEach(m=>{if(m.person1_id===id)out.add("E"+m.person2_id);else if(m.person2_id===id)out.add("E"+m.person1_id)})}
+  mar.forEach(m=>{if(m.a===k)out.add(m.b);else if(m.b===k)out.add(m.a)});return[...out]};
+ const once=(arr,t)=>{if(!arr.includes(t))arr.push(t)};
+ const autofill=()=>{for(const k of [...touched]){const x=get(k);
+  for(const miss of ["mother","father"]){const pk=miss==="mother"?fOf(x):mOf(x),other=miss==="mother"?mOf(x):fOf(x);if(!pk||other)continue;
+   const pg=get(pk).gender,sp=spousesOf(pk).filter(q=>{const g=get(q).gender;return!(g&&pg&&g===pg)});
+   if(sp.length===1){setSlot(x,miss,sp[0]);once(N,`${dn(x)}: ${miss} set to ${dk(sp[0])}, spouse of ${dk(pk)}`)}
+   else if(sp.length>1)once(W,`${dn(x)}: ${dk(pk)} has ${sp.length} spouses, so ${miss} was left blank. Set it on the person page`)}}};
  for(const e of E){const s=get(e.sk);setG(s,e.g);if(!e.rel||!e.rk)continue;const r=get(e.rk),R=BREL.find(b=>b[0]===e.rel),imp=R[2];
   setG(r,e.rg);if(!r.gender)setG(r,imp);
   if(r.gender&&r.gender!==imp)W.push(`${dn(r)} is ${r.gender} but ${R[1]} expects ${imp}`);
@@ -1325,11 +1335,13 @@ function bkPlan(T){
    if(s.gender==="male")setSlot(r,"father",s.key);else if(s.gender==="female")setSlot(r,"mother",s.key);
    else W.push(`${dn(s)}: pick a gender so the ${e.rel} ${dn(r)} can be linked to father or mother`);
    if(e.ord!==""&&e.ord!=null)setOrd(r,+e.ord)}}
+ autofill();
  for(const e of E){if(!["pgf","pgm","mgf","mgm"].includes(e.rel)||!e.rk)continue;const s=get(e.sk),r=get(e.rk);
   const side=e.rel[0]==="p"?"father":"mother";let pk=side==="father"?fOf(s):mOf(s);
   if(!pk){const x={key:"H"+(++hc),name:s.name+"'s "+side,gender:side==="father"?"male":"female",isNew:true,father:null,mother:null,order:null,ph:true,ch:{}};
    per.set(x.key,x);pk=x.key;setSlot(s,side,pk);N.push(`${dn(s)}'s ${side} is not known, so a placeholder "${x.name}" (${x.key}) will be created`)}
   const par=get(pk);setG(r,e.rg);setSlot(par,e.rel.endsWith("f")?"father":"mother",r.key)}
+ autofill();
  const all=[...per.values()],loops=[];
  for(const x of all){const st=[fOf(x),mOf(x)].filter(Boolean),seen=new Set();
   while(st.length){const k=st.pop();if(k===x.key){loops.push(dn(x));break}if(seen.has(k))continue;seen.add(k);const y=get(k);[fOf(y),mOf(y)].forEach(z=>z&&st.push(z))}}
