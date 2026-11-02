@@ -75,6 +75,13 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .acb div{padding:8px 10px;border-bottom:1px solid var(--line)}
 .bke{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0;display:flex;gap:2px;align-items:flex-start}
 .bke .ic{border:0;background:none;color:var(--ink);padding:4px 6px;font-size:1.05rem}
+.ur{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:6px 0}
+.ur.chg{background:#fff8e1;border-color:#e0b000}
+.ur.sel{border:2px solid var(--pri)}
+.ur input,.ur select{padding:6px;margin-top:4px}
+.ug{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.uic button{border:0;background:none;color:var(--pri);padding:2px 6px;font:inherit;font-size:.9rem}
+.uh{font-weight:700;margin:14px 0 2px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .chip{white-space:nowrap;padding:5px 14px;border-radius:99px;background:#e7eef8;color:var(--pri);border:1px solid #b8c8e2;cursor:pointer;font-size:.9rem}
 .chip.on{background:var(--pri);color:#fff}
@@ -329,7 +336,7 @@ function renderNav(){
  
  $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${h==="/add"||h==="/update"?"on":""}">✏️</a>`:"");
  if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
-  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>'+(role==="admin"?'<a href="#/import">📥 Import</a><a href="#/trees">🌳 Trees</a>':'')+'';document.body.appendChild(d)};
+  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>'+(role==="admin"?'<a href="#/bupdate">🧩 Bulk update</a><a href="#/import">📥 Import</a><a href="#/trees">🌳 Trees</a>':'')+'';document.body.appendChild(d)};
  document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
  $("#who").textContent=session?"✅":"👤";
  $("#who").title=session?"Account":"Sign in"}
@@ -362,6 +369,7 @@ function route(){
  if(a==="events")return viewEvents(app);
  if(a==="contacts")return viewContacts(app);
  if(a==="filter")return viewFilter(app);
+ if(a==="bupdate"){if(canEdit())return viewBulkUpdate(app);location.hash="#/login";return}
  if(a==="bulk"){if(canEdit())return viewBulk(app);location.hash="#/login";return}
  if(a==="import"){if(canEdit())return viewImport(app);location.hash="#/login";return}
  if(a==="trees"){if(role==="admin")return viewTrees(app);location.hash="#/login";return}
@@ -1287,15 +1295,16 @@ const BREL=[["dad","Dad","male"],["mom","Mom","female"],["husband","Husband","ma
 const bnorm=v=>String(v||"").trim().toLowerCase();
 const hintTxt=p=>{const f=P(p.father_id),m=P(p.mother_id),sp=spouseIds(p.id).map(P).filter(Boolean)[0];return f?"Father: "+f.name:m?"Mother: "+m.name:sp?"Spouse: "+sp.name:(p.branch||"")};
 /* works out exactly what would be written; nothing is saved here */
-function bkPlan(T){
+function bkPlan(T,S,OV){
+ S=S||BK;OV=OV||{};const pv=id=>{const p=P(id);return p?Object.assign({},p,OV[id]||{}):p};
  const W=[],N=[],per=new Map();let hc=0;
  const isE=k=>k&&k[0]==="E";
  const get=k=>{let x=per.get(k);if(x)return x;
-  if(isE(k)){const p=P(+k.slice(1));x={key:k,id:p.id,name:p.name,gender:p.gender||"",isNew:false,ch:{}}}
-  else{const t=BK.tps.find(t=>t.tid===k);x={key:k,name:t.name,gender:t.gender||"",isNew:true,father:null,mother:null,order:null,ph:false,ch:{}}}
+  if(isE(k)){const p=pv(+k.slice(1));x={key:k,id:p.id,name:p.name,gender:p.gender||"",isNew:false,ch:{}}}
+  else{const t=S.tps.find(t=>t.tid===k);x={key:k,name:t.name,gender:t.gender||"",isNew:true,father:null,mother:null,order:null,ph:false,ch:{}}}
   per.set(k,x);return x};
- const fOf=x=>x.isNew?x.father:(x.ch.father||(P(x.id).father_id?"E"+P(x.id).father_id:null));
- const mOf=x=>x.isNew?x.mother:(x.ch.mother||(P(x.id).mother_id?"E"+P(x.id).mother_id:null));
+ const fOf=x=>x.isNew?x.father:(x.ch.father||(pv(x.id).father_id?"E"+pv(x.id).father_id:null));
+ const mOf=x=>x.isNew?x.mother:(x.ch.mother||(pv(x.id).mother_id?"E"+pv(x.id).mother_id:null));
  const dn=x=>x.name+(x.isNew?" ("+x.key+")":" #"+x.id);
  const dk=k=>k?dn(get(k)):"";
  const touched=new Set();
@@ -1307,10 +1316,10 @@ function bkPlan(T){
   if(!x.gender){x.gender=g;if(!x.isNew)x.ch.gender=g}};
  const setOrd=(x,v)=>{if(isNaN(v)){W.push(`${dn(x)}: order is not a number`);return}
   if(x.isNew){if(x.order!=null&&x.order!==v)W.push(`${dn(x)}: order ${v} conflicts with ${x.order}; kept ${x.order}`);else x.order=v;return}
-  const cur=P(x.id).birth_order;if(cur!=null&&cur!==""&&+cur!==v){W.push(`${dn(x)} already has birth order ${cur}; ${v} ignored`);return}
+  const cur=pv(x.id).birth_order;if(cur!=null&&cur!==""&&+cur!==v){W.push(`${dn(x)} already has birth order ${cur}; ${v} ignored`);return}
   if(cur==null||cur==="")x.ch.order=v};
  const mar=[],mset=new Set(),exM=new Set(marriages.map(m=>Math.min(m.person1_id,m.person2_id)+"-"+Math.max(m.person1_id,m.person2_id)));
- const E=BK.en;
+ const E=S.en;
  /* when one parent is linked to a child, link the parent's only spouse as the other parent too (several spouses: left blank, with a warning) */
  const spousesOf=k=>{const out=new Set();if(isE(k)){const id=+k.slice(1);marriages.forEach(m=>{if(m.person1_id===id)out.add("E"+m.person2_id);else if(m.person2_id===id)out.add("E"+m.person1_id)})}
   mar.forEach(m=>{if(m.a===k)out.add(m.b);else if(m.b===k)out.add(m.a)});return[...out]};
@@ -1354,7 +1363,7 @@ function viewBulk(app){
  if(!BK.tree)BK.tree=TREES.some(t=>t.key===curTree)?curTree:TREES[0].key;
  const F={pid:null,tid:null,rpid:null,rtid:null};
  const gopt='<option value="">Gender</option><option value="male">Male</option><option value="female">Female</option>';
- app.innerHTML=`<div id="bk_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Bulk add</h2><a class="lk" href="#/add">Single member ›</a></div>
+ app.innerHTML=`<div id="bk_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Bulk add</h2><span><a class="lk" href="#/add">Single ›</a> &nbsp; <a class="lk" href="#/bupdate">Bulk update ›</a></span></div>
  <div class="bks">
   <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><span class="mut" style="white-space:nowrap">New people go to</span><select id="bk_t">${TREES.map(t=>`<option value="${esc(t.key)}" ${t.key===BK.tree?"selected":""}>${esc(t.label)}</option>`).join("")}</select></div>
   <div style="display:flex;gap:6px"><input id="bk_id" readonly placeholder="ID" style="width:84px;flex:none;background:#eef2f7"><div class="bkw" style="flex:1"><input id="bk_n" placeholder="Name *" autocomplete="off"><div class="acb" id="bk_nb"></div></div></div>
@@ -1437,6 +1446,135 @@ function viewBulk(app){
     if(error){stop("People and links were saved but marriages stopped: "+error.message);await load();return}}
    BK.en=[];BK.tps=[];BK.tc=0;await load();location.hash="#/"+treeSlug(T)}};
  cnt();draw()}
+/* ---------- bulk update (admin): pick a person, see and edit close family, add relatives, review, save ---------- */
+const BU={sel:null,subj:null,ed:{},en:[],tps:[],tc:0,ec:0,tree:null,msg:""};
+const BU_FL={name:"name",gender:"gender",birth_order:"birth order",tree:"tree",branch:"family line",father_id:"father",mother_id:"mother",is_placeholder:"placeholder"};
+function acInit(inp,box,pick,clear,getTps){const hide=()=>{box.style.display="none"};
+ const items=q=>(getTps?getTps():[]).filter(t=>bnorm(t.name).includes(q)).map(t=>({tid:t.tid,name:t.name,gender:t.gender,sub:"new in this batch · "+t.tid})).concat(
+  people.filter(p=>bnorm(p.name).includes(q)).sort((a,b)=>(bnorm(a.name).startsWith(q)?0:1)-(bnorm(b.name).startsWith(q)?0:1)||(a.name||"").localeCompare(b.name||"")).map(p=>({pid:p.id,name:p.name,gender:p.gender,sub:[hintTxt(p),treeLabel(p.tree),"#"+p.id].filter(Boolean).join(" · ")})));
+ const show=()=>{const q=bnorm(inp.value);if(!q){hide();return}const L=items(q),S=L.slice(0,60);
+  box.innerHTML=(S.length?S.map((x,i)=>`<div data-i="${i}"><b>${esc(x.name)}</b> <span class="mut">${esc(x.sub)}</span></div>`).join(""):`<div class="mut">No match: will be added as a new person</div>`)+(L.length>60?`<div class="mut">Showing 60 of ${L.length}; keep typing</div>`:"");
+  box.style.display="block";box._L=S};
+ inp.oninput=()=>{clear();show()};inp.onfocus=show;inp.onblur=()=>setTimeout(hide,150);
+ box.onpointerdown=e=>{const d=e.target.closest("[data-i]");if(!d)return;e.preventDefault();const x=box._L[+d.dataset.i];inp.value=x.name;pick(x);hide()}}
+/* writes the reviewed batch: new people, parent links, field edits, marriages */
+async function buSave(pl,T,pm,ed){
+ const ids=new Map(),idOf=k=>k[0]==="E"?+k.slice(1):ids.get(k),fail=t=>{pm.textContent=t;pm.style.color="var(--red)";alert(t);return false};
+ for(let a=0;a<pl.ins.length;a+=50){const ch=pl.ins.slice(a,a+50);pm.textContent="Adding people… "+a+"/"+pl.ins.length;
+  const {data,error}=await sb.from("ft_people").insert(ch.map(x=>{const o={name:x.name,tree:T};if(x.gender)o.gender=x.gender;if(x.order!=null)o.birth_order=x.order;if(x.ph)o.is_placeholder=true;return o})).select("id,name");
+  if(error||!data||data.length!==ch.length||data.some((d,j)=>d.name!==ch[j].name)){await load();return fail("Stopped after "+a+" people: "+(error?error.message:"unexpected reply")+". Check the tree before trying again.")}
+  ch.forEach((x,j)=>ids.set(x.key,data[j].id))}
+ const U=new Map();
+ for(const x of pl.ins){const o={};if(x.father)o.father_id=idOf(x.father);if(x.mother)o.mother_id=idOf(x.mother);if(Object.keys(o).length)U.set(ids.get(x.key),o)}
+ for(const x of pl.upd){const o={};if(x.ch.father)o.father_id=idOf(x.ch.father);if(x.ch.mother)o.mother_id=idOf(x.ch.mother);if(x.ch.order!=null)o.birth_order=x.ch.order;if(x.ch.gender)o.gender=x.ch.gender;U.set(x.id,o)}
+ for(const k of Object.keys(ed)){const id=+k;U.set(id,Object.assign({},ed[k],U.get(id)||{}))}
+ const ups=[...U].filter(([,o])=>Object.keys(o).length);
+ for(let a=0;a<ups.length;a+=15){pm.textContent="Updating… "+Math.min(a+15,ups.length)+"/"+ups.length;
+  const rr=await Promise.all(ups.slice(a,a+15).map(([id,o])=>sb.from("ft_people").update(o).eq("id",id)));const er=rr.find(x=>x.error);
+  if(er){await load();return fail("Stopped while updating: "+er.error.message+". Earlier changes may already be saved.")}}
+ for(let a=0;a<pl.mar.length;a+=50){pm.textContent="Adding marriages…";const {error}=await sb.from("ft_marriages").insert(pl.mar.slice(a,a+50).map(m=>({person1_id:idOf(m.a),person2_id:idOf(m.b),status:"married"})));
+  if(error){await load();return fail("Marriages stopped: "+error.message+". People and links were saved.")}}
+ return true}
+function viewBulkUpdate(app){
+ if(!BU.tree)BU.tree=TREES.some(t=>t.key===curTree)?curTree:TREES[0].key;
+ const gopt='<option value="">Gender</option><option value="male">Male</option><option value="female">Female</option>';
+ const F={rpid:null,rtid:null};
+ app.innerHTML=`<div id="bu_main"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:.1em 0">Bulk update</h2><a class="lk" href="#/bulk">Bulk add ›</a></div>
+ <div class="bks"><div class="bkw"><input id="bu_q" placeholder="Pick a person: type a name" autocomplete="off"><div class="acb" id="bu_qb"></div></div>
+  <div style="display:flex;gap:6px;margin-top:6px;align-items:center"><button id="bu_sub" style="flex:1">Review &amp; save</button><span id="bu_m" class="mut" style="flex:1.4"></span></div></div>
+ <details id="bu_ad" style="margin:8px 0"><summary><b>Add a new relative</b></summary>
+  <div class="mut" style="margin:6px 0">For <b id="bu_for">nobody picked</b> <a href="javascript:void(0)" id="bu_rst" class="lk">reset</a></div>
+  <div style="display:flex;gap:6px"><select id="bu_r" style="flex:1"><option value="">Relationship</option>${BREL.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join("")}</select><input id="bu_o" inputmode="decimal" placeholder="Order" style="width:84px;flex:none"></div>
+  <div style="display:flex;gap:6px;margin-top:6px"><div class="bkw" style="flex:1"><input id="bu_rn" placeholder="Relation name" autocomplete="off"><div class="acb" id="bu_rb"></div></div><select id="bu_rg" style="width:112px;flex:none">${gopt.replace("Gender","Rel. gender")}</select></div>
+  <div id="bu_rh" class="mut" style="font-size:.75rem;min-height:1em"></div>
+  <div style="display:flex;gap:6px;margin-top:4px;align-items:center"><select id="bu_t" style="flex:1">${TREES.map(t=>`<option value="${esc(t.key)}" ${t.key===BU.tree?"selected":""}>New people go to ${esc(t.label)}</option>`).join("")}</select><button id="bu_add" style="flex:none">Add</button></div></details>
+ <div id="bu_pend"></div><div id="bu_fam"></div></div><div id="bu_p" style="display:none"></div>`;
+ const say=(t,bad)=>{const m=$("#bu_m");m.textContent=t||"";m.style.color=bad?"var(--red)":""};
+ const nEd=()=>Object.values(BU.ed).reduce((a,o)=>a+Object.keys(o).length,0);
+ const cnt=()=>{const n=nEd()+BU.en.length;$("#bu_sub").textContent="Review & save"+(n?" ("+n+")":"")};
+ const subj=()=>BU.subj||BU.sel;
+ const forLbl=()=>{const p=P(subj());$("#bu_for").textContent=p?p.name+" #"+p.id:"nobody picked"};
+ acInit($("#bu_q"),$("#bu_qb"),x=>{BU.sel=x.pid;BU.subj=null;forLbl();drawFam()},()=>{});
+ if(BU.sel&&P(BU.sel))$("#bu_q").value=P(BU.sel).name;else BU.sel=null;
+ if(BU.msg){say(BU.msg);BU.msg=""}
+ acInit($("#bu_rn"),$("#bu_rb"),x=>{F.rpid=x.pid||null;F.rtid=x.tid||null;$("#bu_rh").textContent=x.pid?"Existing person #"+x.pid:"Already added in this batch: "+x.tid;if(x.gender==="male"||x.gender==="female")$("#bu_rg").value=x.gender},()=>{F.rpid=F.rtid=null;$("#bu_rh").textContent=$("#bu_rn").value.trim()?"Will be added as a new person":""},()=>BU.tps);
+ $("#bu_r").onchange=()=>{const r=BREL.find(b=>b[0]===$("#bu_r").value);if(!r)return;const k=F.rpid?(P(F.rpid)||{}).gender:(BU.tps.find(t=>t.tid===F.rtid)||{}).gender;$("#bu_rg").value=k==="male"||k==="female"?k:r[2]};
+ $("#bu_t").onchange=e=>{BU.tree=e.target.value};
+ $("#bu_rst").onclick=()=>{BU.subj=null;forLbl()};
+ const mkTmp=(name,g)=>{const t={tid:"T"+(++BU.tc),name,gender:g||""};BU.tps.push(t);return t.tid};
+ const lbl=r=>(BREL.find(b=>b[0]===r)||[0,r])[1];
+ const drawPend=()=>{$("#bu_pend").innerHTML=BU.en.length?`<div class="uh">New relatives to add (${BU.en.length})</div>`+BU.en.slice().reverse().map(e=>`<div class="bke"><div style="flex:1;min-width:0"><b>${esc(e.sname)}</b> <span class="mut">${esc(lbl(e.rel))}</span> <b>${esc(e.rname)}</b><div class="mut" style="font-size:.75rem">${esc([e.rk[0]==="E"?"ID #"+e.rk.slice(1):"new "+e.rk,e.ord&&"order "+e.ord,e.rg&&"rel. "+(e.rg==="male"?"Male":"Female")].filter(Boolean).join(" · "))}</div></div><button class="ic" data-x="${e.e}" title="Remove">🗑</button></div>`).join(""):"";
+  $("#bu_pend").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{BU.en=BU.en.filter(x=>x.e!==+b.dataset.x);BU.tps=BU.tps.filter(t=>BU.en.some(x=>x.rk===t.tid));cnt();drawPend()})};
+ $("#bu_add").onclick=()=>{const s=P(subj());if(!s)return say("Pick a person first",1);
+  const rel=$("#bu_r").value,rname=$("#bu_rn").value.trim().replace(/^\s*late\s+/i,""),rg=$("#bu_rg").value,ord=$("#bu_o").value.trim();
+  if(!rel||!rname)return say("Pick a relationship and a relation name",1);if(ord&&isNaN(+ord))return say("Order must be a number like 1, 2 or 1.1",1);
+  let rk=F.rpid?"E"+F.rpid:F.rtid;if(!rk)rk=mkTmp(rname,rg);else if(rg&&F.rtid){const t=BU.tps.find(t=>t.tid===F.rtid);if(t&&!t.gender)t.gender=rg}
+  if(rk==="E"+s.id)return say("A person cannot be related to themselves",1);
+  BU.en.push({e:++BU.ec,sk:"E"+s.id,sname:s.name,g:"",rel,rk,rname,ord,rg});
+  ["bu_r","bu_rn","bu_o","bu_rg"].forEach(i=>$("#"+i).value="");F.rpid=F.rtid=null;$("#bu_rh").textContent="";BU.subj=null;forLbl();say("Added to the list below");cnt();drawPend()};
+ /* staging field edits (nothing is saved until Review & save) */
+ const stage=(id,f,raw)=>{const p=P(id);let val;
+  if(f==="birth_order"){val=raw.trim()===""?null:+raw;if(val!==null&&isNaN(val))return}
+  else if(f==="name"){val=raw.trim().replace(/^\s*late\s+/i,"");if(!val)return}
+  else val=raw===""?null:raw;
+  const e=BU.ed[id]=BU.ed[id]||{},same=String(p[f]??"")===String(val??"");
+  if(same)delete e[f];else e[f]=val;
+  if(f==="name"&&p.is_placeholder){if(same)delete e.is_placeholder;else e.is_placeholder=false}
+  if(!Object.keys(e).length)delete BU.ed[id];
+  const row=$("#bu_fam").querySelector('.ur[data-id="'+id+'"]');if(row)row.classList.toggle("chg",!!BU.ed[id]);cnt()};
+ const brs=()=>[...new Set([...FAMILY_LINES,...people.map(p=>(p.branch||"").trim()).filter(Boolean)])];
+ const drawFam=()=>{const s=P(BU.sel);
+  if(!s){$("#bu_fam").innerHTML=`<div class="mut" style="margin:14px 0">Pick a person to see their grandparents, parents, spouse, siblings, children and grandchildren. Edit anything inline; nothing is saved until you review.</div>`;return}
+  const f=P(s.father_id),m=P(s.mother_id),gl=(p,a,b,c)=>p.gender==="male"?a:p.gender==="female"?b:c,G=[],gp=[];
+  [[f,"Father's"],[m,"Mother's"]].forEach(([q,t])=>{if(q)[["father_id","father"],["mother_id","mother"]].forEach(([k,l])=>{const x=P(q[k]);if(x)gp.push({p:x,rel:t+" "+l,link:{who:q.id,field:k}})})});
+  G.push(["Grandparents",gp]);
+  G.push(["Parents",[f?{p:f,rel:"Father",link:{who:s.id,field:"father_id"}}:{miss:"Father",addrel:"dad"},m?{p:m,rel:"Mother",link:{who:s.id,field:"mother_id"}}:{miss:"Mother",addrel:"mom"}]]);
+  G.push(["Selected person",[{p:s,rel:"Selected",sel:1}]]);
+  G.push(["Spouse",spouseIds(s.id).map(P).filter(Boolean).map(p=>({p,rel:gl(p,"Husband","Wife","Spouse")}))]);
+  G.push(["Siblings",siblingsOf(s).map(p=>({p,rel:gl(p,"Brother","Sister","Sibling")}))]);
+  const kids=people.filter(c=>c.father_id===s.id||c.mother_id===s.id).sort(cmp),gk=[];
+  G.push(["Children",kids.map(c=>({p:c,rel:gl(c,"Son","Daughter","Child"),link:{who:c.id,field:c.father_id===s.id?"father_id":"mother_id"}}))]);
+  kids.forEach(c=>people.filter(g=>g.father_id===c.id||g.mother_id===c.id).sort(cmp).forEach(g=>gk.push({p:g,rel:gl(g,"Grandson","Granddaughter","Grandchild")+" via "+c.name,link:{who:g.id,field:g.father_id===c.id?"father_id":"mother_id"}})));
+  G.push(["Grandchildren",gk]);
+  const B=brs(),row=x=>{
+   if(x.miss)return`<div class="ur" style="background:none;border-style:dashed"><span class="mut">${x.miss}: not recorded</span> <button class="alt" data-a="addrel" data-rel="${x.addrel}" style="padding:2px 10px;float:right">➕ Add</button></div>`;
+   const p=x.p,e=BU.ed[p.id]||{},v=k=>k in e?e[k]:p[k],off=x.link&&(BU.ed[x.link.who]||{})[x.link.field]===null;
+   const sel=(k,opts,ph)=>`<select data-f="${k}"><option value="">${ph}</option>${opts.map(([a,b])=>`<option value="${esc(a)}" ${String(v(k)??"")===a?"selected":""}>${esc(b)}</option>`).join("")}</select>`;
+   const bo=B.includes(v("branch"))||!v("branch")?B:B.concat([v("branch")]);
+   return`<div class="ur${BU.ed[p.id]?" chg":""}${x.sel?" sel":""}" data-id="${p.id}" style="${off?"opacity:.55":""}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span class="mut" style="font-size:.78rem"><b>${esc(x.rel)}</b> · #${p.id}${off?" · will be unlinked":""}</span><span class="uic" style="white-space:nowrap">
+    <button data-a="addrel" data-id="${p.id}" title="Add a relative of this person">➕</button>${x.sel?"":`<button data-a="open" data-id="${p.id}" title="Open this person">↗</button>`}<button data-a="more" data-id="${p.id}" title="All fields">⋯</button>${x.link?`<button data-a="unlink" data-who="${x.link.who}" data-field="${x.link.field}" title="${off?"Undo unlink":"Remove this link"}">${off?"↩ Undo":"Unlink"}</button>`:""}</span></div>
+    <input data-f="name" value="${esc(v("name"))}"><div class="ug">${sel("gender",[["male","Male"],["female","Female"],["other","Other"]],"Gender")}<input data-f="birth_order" inputmode="decimal" placeholder="Order" value="${esc(v("birth_order")??"")}">${sel("tree",TREES.map(t=>[t.key,t.label]),"Tree")}${sel("branch",bo.map(b=>[b,b]),"Family line")}</div></div>`};
+  $("#bu_fam").innerHTML=G.filter(([,r])=>r.length).map(([t,r])=>`<div class="uh">${t}${t==="Selected person"?"":" ("+r.filter(x=>!x.miss).length+")"}</div>`+r.map(row).join("")).join("");
+  const box=$("#bu_fam");
+  box.oninput=box.onchange=e=>{const el=e.target.closest("[data-f]");if(!el)return;const r=el.closest(".ur");stage(+r.dataset.id,el.dataset.f,el.value)};
+  box.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
+   if(a==="addrel"){BU.subj=b.dataset.id?+b.dataset.id:BU.sel;forLbl();$("#bu_ad").open=true;if(b.dataset.rel){$("#bu_r").value=b.dataset.rel;$("#bu_r").onchange()}$("#bu_ad").scrollIntoView({block:"center"});return}
+   if(a==="open"){BU.sel=+b.dataset.id;BU.subj=null;$("#bu_q").value=P(BU.sel).name;forLbl();drawFam();window.scrollTo(0,0);return}
+   if(a==="unlink"){const w=+b.dataset.who,fl=b.dataset.field,ed=BU.ed[w]=BU.ed[w]||{};if(fl in ed)delete ed[fl];else ed[fl]=null;if(!Object.keys(ed).length)delete BU.ed[w];cnt();drawFam();return}
+   if(a==="more"){const id=+b.dataset.id,rec=Object.assign({},P(id),BU.ed[id]||{});
+    openForm("Edit "+(rec.name||"person"),PF,rec,async o=>{if(o.name)o.name=o.name.replace(/^\s*late\s+/i,"");if(!o.name)return"Name is required";
+     const r=await sb.from("ft_people").update(o).eq("id",id);if(r.error)return r.error.message;delete BU.ed[id];await load()})}};
+ };
+ const back=()=>{$("#bu_p").style.display="none";$("#bu_main").style.display=""};
+ $("#bu_sub").onclick=()=>{const total=nEd()+BU.en.length;if(!total)return say("Nothing to save yet",1);say("");
+  const T=BU.tree,pl=bkPlan(T,BU,BU.ed),dk=pl.dk,show=v=>v===null||v===undefined||v===""?"(blank)":String(v);
+  const tbl=(h,rows)=>rows.length?`<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:.88rem"><thead><tr style="text-align:left">${h.map(x=>`<th style="padding:4px 8px 4px 0">${x}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td style="padding:4px 8px 4px 0;vertical-align:top">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`:`<div class="mut">None</div>`;
+  const ids=[...new Set([...Object.keys(BU.ed).map(Number),...pl.upd.map(x=>x.id)])].sort((a,b)=>a-b);
+  const chgRows=ids.map(id=>{const p=P(id),e=BU.ed[id]||{},x=pl.upd.find(u=>u.id===id),parts=Object.keys(e).map(k=>{const n=k==="father_id"||k==="mother_id"?(e[k]===null?"unlinked":nm(e[k])):show(e[k]);const o=k==="father_id"||k==="mother_id"?(p[k]?nm(p[k]):"(blank)"):show(p[k]);return BU_FL[k]+": "+o+" → "+n});
+   if(x){if(x.ch.father)parts.push("father → "+dk(x.ch.father));if(x.ch.mother)parts.push("mother → "+dk(x.ch.mother));if(x.ch.order!=null)parts.push("birth order → "+x.ch.order);if(x.ch.gender)parts.push("gender → "+x.ch.gender)}
+   return["#"+id,p.name,parts.join("; ")]});
+  $("#bu_main").style.display="none";const Q=$("#bu_p");Q.style.display="";
+  Q.innerHTML=`<h2 style="margin:.1em 0">Preview</h2><div class="mut">Nothing is saved until you confirm.</div>
+  ${pl.W.length?`<div class="status warn"><b>Check these</b>${pl.W.map(w=>`<div>• ${esc(w)}</div>`).join("")}</div>`:""}${pl.N.length?`<div class="status">${pl.N.map(w=>`<div>• ${esc(w)}</div>`).join("")}</div>`:""}
+  <h3 style="margin:12px 0 4px">ft_people: existing rows changed (${chgRows.length})</h3>${tbl(["ID","Name","Change"],chgRows)}
+  <h3 style="margin:12px 0 4px">ft_people: new rows (${pl.ins.length})</h3>${tbl(["Ref","Name","Gender","Tree","Father","Mother","Order","Placeholder"],pl.ins.map(x=>[x.key,x.name,x.gender,treeLabel(T),dk(x.father),dk(x.mother),x.order==null?"":x.order,x.ph?"yes":""]))}
+  <h3 style="margin:12px 0 4px">ft_marriages: new rows (${pl.mar.length})</h3>${tbl(["Person 1","Person 2","Status"],pl.mar.map(m=>[dk(m.a),dk(m.b),"married"]))}
+  <div class="row" style="gap:8px;margin:14px 0;align-items:center"><button class="alt" id="bu_bk">‹ Back</button><button id="bu_ok" ${pl.loops.length?"disabled":""}>Confirm and save</button><span id="bu_pm" class="mut"></span></div>`;
+  window.scrollTo(0,0);$("#bu_bk").onclick=back;
+  $("#bu_ok").onclick=async()=>{const ok=$("#bu_ok"),pm=$("#bu_pm");ok.disabled=true;$("#bu_bk").disabled=true;
+   const done=await buSave(pl,T,pm,BU.ed);
+   if(done){BU.ed={};BU.en=[];BU.tps=[];BU.tc=0;BU.msg="Saved ✓";await load()}else{ok.disabled=false;$("#bu_bk").disabled=false}}};
+ forLbl();cnt();drawPend();drawFam()}
 function viewMembers(app){
  gf="all";if(!kOn())kf="all";
  const chips=treeChips();
