@@ -68,10 +68,8 @@ label{display:block;margin:10px 0 2px;font-size:.85rem;color:var(--mut)}
 .pc.hb{padding-left:28px}
 .pc.gm{background:#f2f7ff;border-color:#bcd3f7}.pc.gf{background:#fff4f9;border-color:#f4c6da}
 .pc.gm:hover,.pc.gf:hover{border-color:var(--pri)}
-.pc.gm::before,.pc.gf::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:4px;border-radius:0 3px 3px 0}
-.pc.gm::before{background:#3b82f6}.pc.gf::before{background:#ec4899}
 .lgd{display:inline-flex;gap:10px;margin-left:6px;white-space:nowrap}.lgd i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:3px}
-.lgd i.gm{background:#f2f7ff;border:1px solid #bcd3f7;box-shadow:inset 3px 0 0 #3b82f6}.lgd i.gf{background:#fff4f9;border:1px solid #f4c6da;box-shadow:inset 3px 0 0 #ec4899}
+.lgd i.gm{background:#f2f7ff;border:1px solid #bcd3f7}.lgd i.gf{background:#fff4f9;border:1px solid #f4c6da}
 .bn{position:absolute;left:6px;top:50%;transform:translateY(-50%);min-width:15px;height:15px;padding:0 3px;box-sizing:border-box;border-radius:8px;background:var(--pri);color:#fff;font-size:.58rem;font-weight:700;line-height:15px;text-align:center;pointer-events:none}
 .pc img{width:46px;height:46px;border-radius:50%;object-fit:cover;flex:none}
 .pc .n{font-weight:600;font-size:.92rem;overflow-wrap:break-word}
@@ -373,7 +371,7 @@ const sortKey=p=>dispName(p).replace(/^\s*late\s+/i,"").toLowerCase();
 const byName=(a,b)=>sortKey(a).localeCompare(sortKey(b),undefined,{sensitivity:"base"})||a.id-b.id;
 const dispName=p=>(isLate(p)?"Late ":"")+(p.name||"Unnamed");
 const nm=id=>{const p=P(id);return p?dispName(p):""};
-const gcl=p=>p.gender==="male"?" gm":p.gender==="female"?" gf":"";
+const gcl=p=>{let g=p.gender;if(!g&&typeof people!=="undefined"){if(people.some(c=>c.mother_id===p.id))g="female";else if(people.some(c=>c.father_id===p.id))g="male"}return g==="male"?" gm":g==="female"?" gf":""};
 function card(p,o){
  const per=period(p),num=bo(p)!==null&&!(o&&o.nn);
  return`<a class="pc${num?" hb":""}${gcl(p)}" href="#/person/${p.id}">`+
