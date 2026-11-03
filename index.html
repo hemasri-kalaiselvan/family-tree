@@ -1168,7 +1168,7 @@ function rec(p,full){
  const sps=marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>({m,o:P(m.person1_id===id?m.person2_id:m.person1_id)})).filter(x=>x.o);
  const spH=sps.map(({m,o})=>{
   let extra="";
-  if(full){const bits=[m.status&&m.status!=="married"?m.status:"",m.engagement_date?"engaged "+fmtDate(m.engagement_date)+(m.engagement_place?" at "+esc(m.engagement_place):""):"",m.marriage_date?"wedding "+fmtDate(m.marriage_date)+(m.wedding_place?" at "+esc(m.wedding_place):""):"",m.end_date?"ended "+fmtDate(m.end_date):""].filter(Boolean).join(", ");
+  if(full){const bits=[m.status||"",m.engagement_date?"engaged "+fmtDate(m.engagement_date)+(m.engagement_place?" at "+esc(m.engagement_place):""):"",m.marriage_date?"wedding "+fmtDate(m.marriage_date)+(m.wedding_place?" at "+esc(m.wedding_place):""):"",m.end_date?"ended "+fmtDate(m.end_date):""].filter(Boolean).join(", ");
    if(bits)extra=` <span class="mut">(${bits})</span>`;
    if(canEdit())extra+=` <a class="lk" href="javascript:openMarriage(${m.id})">✎</a> <a class="lk" style="color:var(--red)" href="javascript:delMarriage(${m.id})">🗑</a>`}
   return lk(o)+extra}).join(", ");
