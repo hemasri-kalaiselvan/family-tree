@@ -2,18 +2,55 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Family Tree</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%23234e8a%22/%3E%3Cg transform=%22translate%288 8%29 scale%282%29%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%225%22 cy=%2212%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Ccircle cx=%2219%22 cy=%225.5%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Ccircle cx=%2219%22 cy=%2212%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Ccircle cx=%2219%22 cy=%2218.5%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Cpath d=%22M7.3 12h4M11.3 12V5.5h5.4M11.3 12v6.5h5.4M11.3 12h5.4%22/%3E%3C/g%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%23234e8a%22/%3E%3Cg transform=%22translate%288 8%29 scale%282%29%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%225%22 cy=%2212%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Ccircle cx=%2219%22 cy=%225.5%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Ccircle cx=%2219%22 cy=%2212%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Ccircle cx=%2219%22 cy=%2218.5%22 r=%222.3%22 fill=%22%23fff%22/%3E%3Cpath d=%22M7.3 12h4M11.3 12V5.5h5.4M11.3 12v6.5h5.4M11.3 12h5.4%22/%3E%3C/g%3E%3C/svg%3E">
+<meta name="theme-color" content="#234e8a">
 <style>
 :root{--bg:#f4f7fb;--card:#fff;--ink:#243047;--mut:#65738a;--line:#dbe3ef;--pri:#234e8a;--red:#b3261e}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,"Noto Sans Tamil","Latha",sans-serif}
 a{color:inherit;text-decoration:none}
-header{background:var(--pri);color:#fff;position:sticky;top:0;z-index:10}
-.top{max-width:1050px;margin:auto;display:flex;align-items:center;gap:8px;padding:8px 12px}
-.brand{font-weight:700;font-size:1.15rem;white-space:nowrap}
-nav{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none}
-nav a{padding:8px 12px;border-radius:8px;white-space:nowrap;font-size:.95rem}
-nav a.on{background:#ffffff30}
-#who{font-size:1.3rem;padding:4px 8px;cursor:pointer;background:none;border:0;color:#fff}
+header{background:linear-gradient(180deg,#2b5ba3,var(--pri));color:#fff;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px #0003}
+.top{max-width:1180px;margin:auto;display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.15rem;white-space:nowrap;margin-right:2px}
+.brand .lg{width:34px;height:34px;border-radius:10px;background:#ffffff26;display:grid;place-items:center;flex:none}
+svg.ic{width:1.15em;height:1.15em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em}
+svg.ic.fl{fill:currentColor;stroke:none}
+/* tree tabs: a dark capsule group, clearly separate from the tool buttons */
+#ntrees{display:flex;gap:2px;background:#0a2347b0;padding:3px;border-radius:999px;overflow-x:auto;scrollbar-width:none;max-width:100%;min-width:0;flex:0 1 auto;box-shadow:inset 0 1px 3px #0006}
+#ntrees::-webkit-scrollbar{display:none}
+#ntrees a{padding:6px 12px;border-radius:999px;white-space:nowrap;font-size:.92rem;font-weight:600;color:#ffffffd0;flex:none}
+#ntrees a:hover{background:#ffffff22;color:#fff}
+#ntrees a.on{background:#fff;color:var(--pri);box-shadow:0 1px 4px #0005}
+.hsep{width:1px;height:26px;background:#ffffff45;margin:0 4px;flex:none}
+/* tools: outlined buttons with coloured icons; extra ones fall into the More menu */
+#ntools{flex:1 1 0;min-width:0;display:flex;gap:5px;overflow:hidden;align-items:center}
+#ntools a{position:relative;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;white-space:nowrap;font-size:.92rem;font-weight:600;border:1px solid #ffffff38;background:#ffffff14;flex:none;color:#fff}
+#ntools a svg.ic{color:var(--h,#fff);width:1.25em;height:1.25em}
+#ntools a:hover{background:#ffffff2a;border-color:#ffffff80}
+#ntools a.on{background:#ffffff38;border-color:#fff}
+#ntools.ico a{padding:7px 10px}#ntools.ico a .lb{display:none}
+.hb{min-width:18px;height:18px;border-radius:9px;background:#ff5252;color:#fff;font-size:.7rem;font-weight:700;display:inline-grid;place-items:center;padding:0 5px;line-height:1}
+#ntools.ico .hb{position:absolute;top:-6px;right:-6px;box-shadow:0 0 0 2px var(--pri)}
+.hacts{display:flex;align-items:center;gap:4px;margin-left:auto}
+#ntools+.hacts{margin-left:0}
+#who,#more{position:relative;width:38px;height:38px;padding:0;display:grid;place-items:center;cursor:pointer;background:#ffffff14;border:1px solid #ffffff38;border-radius:50%;color:#fff;font-size:1rem}
+#who:hover,#more:hover{background:#ffffff2a}
+#who svg.ic,#more svg.ic{width:20px;height:20px}
+#who .ok{position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px var(--pri)}
+#more .dt{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;border-radius:8px;background:#ff5252;color:#fff;font-size:.65rem;font-weight:700;display:grid;place-items:center;padding:0 4px;box-shadow:0 0 0 2px var(--pri)}
+#more.pulse{animation:hp 1.8s ease-out 3}
+@keyframes hp{0%{box-shadow:0 0 0 0 #ffffffaa}100%{box-shadow:0 0 0 12px #fff0}}
+@media(max-width:760px){
+.top{padding:8px 10px;row-gap:8px}
+.brand{order:1}
+#ntools{order:2}
+#ntools a:first-child{margin-left:auto}
+.hacts{order:3}
+#ntrees{order:4;flex:1 0 100%;max-width:100%}
+#ntrees a{flex:1 0 auto;text-align:center;padding:8px 14px}
+.hsep{display:none}
+}
 main{max-width:1050px;margin:auto;padding:14px}
 h2{margin:.2em 0 .6em}
 .mut{color:var(--mut);font-size:.85rem}
@@ -89,7 +126,7 @@ dialog{border:1px solid #cbd5e1;border-radius:14px;width:min(94vw,520px);max-hei
 .mc details>summary{display:inline-block;color:var(--pri);font-weight:700;font-size:1.1rem;line-height:1;cursor:pointer;padding:2px 8px;background:#e7eef8;border-radius:6px;margin-top:4px}
 .mc .kv{margin-top:6px;font-size:.85rem}
 #top{position:fixed;right:14px;bottom:18px;width:44px;height:44px;border-radius:50%;padding:0;font-size:1.3rem;box-shadow:0 2px 8px #0004;z-index:20;display:none}
-@media(max-width:600px){.bt{display:none}nav a{padding:8px 10px}}
+
 .sb{position:relative}.sb input{padding-right:40px}
 .qc{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--mut);font-size:1.1rem;padding:8px 12px;line-height:1}
 .srow{display:flex;gap:8px;align-items:flex-start}.srow .mc{flex:1;min-width:0}
@@ -150,10 +187,21 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vt .pc .p{font-size:.64rem}
 .zst{position:sticky;top:var(--hh,52px);z-index:9;background:var(--bg);padding:6px 0}
 .zst .tools{margin:0 0 6px}
-#more{font-size:1.5rem;padding:4px 10px;cursor:pointer;background:none;border:0;color:#fff;line-height:1}
-#mmenu{position:fixed;top:var(--hh,52px);right:8px;z-index:50;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px #0004;padding:6px;min-width:170px}
-#mmenu a{display:block;padding:10px 12px;border-radius:8px;font-weight:600;color:var(--ink)}
-#mmenu a:hover{background:#e7eef8}
+#mmenu{position:fixed;z-index:50;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 28px #0005;padding:6px;width:min(300px,calc(100vw - 16px))}
+#mmenu .mh{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:8px 10px 4px}
+#mmenu a{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:10px;color:var(--ink)}
+#mmenu a:hover,#mmenu a:active{background:#e7eef8}
+#mmenu a.on{background:#e7eef8;box-shadow:inset 3px 0 0 var(--pri)}
+#mmenu .mic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--c) 16%,#fff);color:var(--c)}
+#mmenu .mic svg.ic{width:20px;height:20px}
+#mmenu .mt{display:flex;flex-direction:column;min-width:0;flex:1}
+#mmenu .mt b{font-size:.98rem}
+#mmenu .mt small{color:var(--mut);font-size:.78rem;line-height:1.25}
+#mmenu .hb{margin-left:auto}
+a.tl{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#e7eef8;color:var(--pri)}
+a.tl:hover{background:#d3e0f4}
+a.tl svg.ic{width:20px;height:20px}
+.ibtn{display:inline-flex;align-items:center;gap:6px}
 .tw{overflow-x:auto}.ct{width:100%;border-collapse:collapse;font-size:.9rem}.ct th,.ct td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ct th{color:var(--mut);font-weight:700}.ct a{color:var(--ink)}
 @media(max-width:700px){
 .ct thead{display:none}.ct,.ct tbody{display:block}
@@ -162,7 +210,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .ct td:empty{display:none}
 .ct td:nth-child(1){color:var(--mut);font-size:.8rem;font-variant-numeric:tabular-nums}
 .ct td:nth-child(2){font-weight:700;font-size:1rem}
-.ct td.tc{grid-row:1;grid-column:3;font-size:1.3rem}
+.ct td.tc{grid-row:1;grid-column:3}
 .ct td[data-l]{grid-column:2/4;font-size:.92rem}
 .ct td[data-l]::before{content:attr(data-l);display:inline-block;min-width:68px;color:var(--mut);font-size:.8rem}
 .ct td.msg{grid-column:1/-1}
@@ -218,10 +266,14 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 #vpop .btn,#vpop button{text-align:center;width:100%}
 </style></head><body>
 <header><div class="top">
-  <a class="brand" href="#/">🌳<span class="bt"> Family Tree</span></a>
-  <nav id="nav"></nav>
-  <button id="more" title="More" aria-label="More">⋮</button>
-  <button id="who" title="Sign in" aria-label="Sign in">👤</button>
+  <a class="brand" href="#/" aria-label="Family Tree home"><span class="lg" id="lg"></span><span class="btxt">Family Tree</span></a>
+  <nav id="ntrees" aria-label="Family trees"></nav>
+  <span class="hsep"></span>
+  <nav id="ntools" aria-label="Menu"></nav>
+  <div class="hacts">
+    <button id="more" title="More" aria-label="More menu" style="display:none"></button>
+    <button id="who" title="Sign in" aria-label="Sign in"></button>
+  </div>
 </div></header>
 <main id="app"><div class="status">Loading…</div></main>
 <dialog id="dlg"></dialog>
@@ -240,6 +292,26 @@ const treeLabel=k=>(TREES.find(t=>t.key===k)||{}).label||k||"";
 const treeSlug=k=>(TREES.find(t=>t.key===k)||{}).slug||k;
 const treeChips=()=>[["all","All"],...TREES.map(t=>[t.key,t.label])];
 const $=s=>document.querySelector(s);
+/* inline SVG icons: they look the same on every device (old Windows has no colour emoji font) */
+const ICP={
+ tree:'<circle cx="5" cy="12" r="2.3"/><circle cx="19" cy="5.5" r="2.3"/><circle cx="19" cy="12" r="2.3"/><circle cx="19" cy="18.5" r="2.3"/><path d="M7.3 12h4M11.3 12V5.5h5.4M11.3 12v6.5h5.4M11.3 12h5.4"/>',
+ logo:'<path class="f" d="M12 2.8a5.2 5.2 0 0 0-4.8 7.2A4.6 4.6 0 0 0 8.8 19H11v-3.2l-2.2-2 1-1 2.2 2 2.2-2 1 1-2.2 2V19h.2a4.6 4.6 0 0 0 1.6-9A5.2 5.2 0 0 0 12 2.8z"/><path d="M9 22h6"/>',
+ users:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17 14.2c2.4.2 4.5 2.2 4.5 5"/>',
+ cal:'<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.3" class="f"/>',
+ phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+ filt:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
+ more:'<circle cx="12" cy="5" r="1.7" class="f"/><circle cx="12" cy="12" r="1.7" class="f"/><circle cx="12" cy="19" r="1.7" class="f"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5"/>',
+ edit:'<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M14.5 7.5l3 3"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ sync:'<path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/>'};
+const ico=(n,x)=>'<svg class="ic'+(x?' '+x:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICP[n].replace(/class="f"/g,'fill="currentColor" stroke="none"')+'</svg>';
+/* header tools: key, link, label, icon, accent colour, short description for the More menu */
+const TOOLS=[
+ {k:"members",u:"/members",t:"Members",i:"users",c:"#7c3aed",h:"#d8ccff",d:"Everyone in one searchable list"},
+ {k:"events",u:"/events",t:"Events",i:"cal",c:"#d97706",h:"#fcd34d",d:"Birthdays, anniversaries and memorials"},
+ {k:"contacts",u:"/contacts",t:"Contacts",i:"phone",c:"#16a34a",h:"#86efac",d:"Phone numbers and emails"},
+ {k:"filter",u:"/filter",t:"Filter",i:"filt",c:"#0891b2",h:"#67e8f9",d:"Find people by kothram, rasi, star and more"}];
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canEdit=()=>role==="admin";
 const P=id=>people.find(p=>p.id===id);
@@ -330,16 +402,50 @@ let authUid;
 sb.auth.onAuthStateChange((ev,ss)=>{const u=ss&&ss.user?ss.user.id:null;if(authUid!==undefined&&u===authUid&&ev!=="USER_UPDATED")return;authUid=u;setTimeout(load,0)});
 
 /* ---------- nav / routing ---------- */
+function soonCount(){try{const t=todayD();return allEvents().filter(e=>(e.k==="b"&&!e.late)||e.k==="w"||e.k==="d"||e.k==="v").filter(e=>{const n=Math.round((nextOcc(e,t)-t)/864e5);return n>=0&&n<=7}).length}catch(x){return 0}}
+let NAVH=[],NAVSOON=0;
+function setHH(){document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px")}
+function openMenu(anchor,html){
+ const o=$("#mmenu");if(o)o.remove();
+ const d=document.createElement("div");d.id="mmenu";d.innerHTML=html;document.body.appendChild(d);
+ const r=anchor.getBoundingClientRect(),w=d.offsetWidth;
+ d.style.top=(r.bottom+6)+"px";d.style.left=Math.max(8,Math.min(innerWidth-w-8,r.right-w))+"px"}
+const editMenuHtml='<div class="mh">Edit</div><a href="#/add"><span class="mic" style="--c:#16a34a">'+ico("plus")+'</span><span class="mt"><b>Add</b><small>Add new people and relatives</small></span></a><a href="#/update"><span class="mic" style="--c:#2563eb">'+ico("sync")+'</span><span class="mt"><b>Update</b><small>Change details of existing people</small></span></a>';
 function renderNav(){
  const h=location.hash.slice(1)||"/";
- const items=[...TREES.map(t=>["/"+t.slug,t.label]),["/members","Members"]];
- 
- $("#nav").innerHTML=items.map(([u,t])=>`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(u==="/members"&&h.startsWith("/person"))?"on":""}">${t}</a>`).join("")+(canEdit()?`<a href="#" id="editb" title="Edit" aria-label="Edit" class="${["/add","/update","/bulk","/bupdate","/import","/trees","/location"].includes(h)?"on":""}">✏️</a>`:"");
- if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
-  const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/add">➕ Add</a><a href="#/update">🔄 Update</a>';document.body.appendChild(d)};
- document.documentElement.style.setProperty("--hh",(document.querySelector("header").offsetHeight||52)+"px");
- $("#who").textContent=session?"✅":"👤";
- $("#who").title=session?"Account":"Sign in"}
+ $("#lg").innerHTML=ico("logo");
+ $("#ntrees").innerHTML=TREES.map(t=>{const u="/"+t.slug;return`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")?"on":""}">${esc(t.label)}</a>`}).join("");
+ NAVSOON=soonCount();
+ const act=k=>k==="members"?(h==="/members"||h.startsWith("/person")):h==="/"+k;
+ const badge=k=>k==="events"&&NAVSOON?`<span class="hb">${NAVSOON}</span>`:"";
+ $("#ntools").innerHTML=TOOLS.map(x=>`<a href="#${x.u}" data-k="${x.k}" title="${x.t}" class="${act(x.k)?"on":""}" style="--h:${x.h}">${ico(x.i)}<span class="lb">${x.t}</span>${badge(x.k)}</a>`).join("")+
+  (canEdit()?`<a href="#" id="editb" data-k="edit" title="Edit" aria-label="Edit" class="${["/add","/update","/bulk","/bupdate","/import","/trees","/location"].includes(h)?"on":""}" style="--h:#fde68a">${ico("edit")}<span class="lb">Edit</span></a>`:"");
+ if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}openMenu($("#editb"),editMenuHtml)};
+ $("#who").innerHTML=ico("user")+(session?'<span class="ok"></span>':"");
+ $("#who").title=session?"Account":"Sign in";$("#who").setAttribute("aria-label",$("#who").title);
+ $("#more").innerHTML=ico("more");
+ fitNav()}
+/* show as many header buttons as fit: first with labels, then icon-only, then the rest go under the More button */
+function fitNav(){
+ const box=$("#ntools");if(!box)return;
+ const items=[...box.children];
+ items.forEach(a=>a.style.display="");box.classList.remove("ico");
+ const over=()=>box.scrollWidth>box.clientWidth+1;
+ if(innerWidth<=600)items.forEach(a=>a.style.display="none");
+ else{
+  if(over())box.classList.add("ico");
+  for(let i=items.length-1;i>=0&&over();i--)items[i].style.display="none"}
+ NAVH=items.filter(a=>a.style.display==="none").map(a=>a.dataset.k);
+ const m=$("#more");m.style.display=NAVH.length?"":"none";
+ const h=location.hash.slice(1)||"/";
+ const hot=NAVH.includes("events")&&NAVSOON;
+ m.innerHTML=ico("more")+(hot?`<span class="dt">${NAVSOON}</span>`:"");
+ let seen=false;try{seen=localStorage.getItem("ftMoreSeen")==="1"}catch(x){}
+ m.classList.toggle("pulse",!!NAVH.length&&!seen);
+ setHH()}
+let fitT;const fitSoon=()=>{cancelAnimationFrame(fitT);fitT=requestAnimationFrame(()=>{fitNav();const o=$("#mmenu");if(o)o.remove()})};
+window.addEventListener("resize",fitSoon);window.addEventListener("orientationchange",fitSoon);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitNav);
 window.addEventListener("scroll",()=>{$("#top").style.display=scrollY>300?"block":"none"});
 /* remember where you were on the tree / members list, so Back from a person page returns to the same spot */
 history.scrollRestoration="manual";
@@ -356,7 +462,12 @@ window.addEventListener("hashchange",e=>{
  else window.scrollTo(0,0)});
 $("#who").onclick=()=>{location.hash="#/login"};
 $("#more").onclick=e=>{e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}
- const d=document.createElement("div");d.id="mmenu";d.innerHTML='<a href="#/events">📅 Events</a><a href="#/contacts">📞 Contacts</a><a href="#/filter">🔍 Filter</a>';document.body.appendChild(d)};
+ try{localStorage.setItem("ftMoreSeen","1")}catch(x){}
+ $("#more").classList.remove("pulse");
+ const h=location.hash.slice(1)||"/";
+ const act=k=>k==="members"?(h==="/members"||h.startsWith("/person")):h==="/"+k;
+ const rows=TOOLS.filter(x=>NAVH.includes(x.k)).map(x=>`<a href="#${x.u}" class="${act(x.k)?"on":""}"><span class="mic" style="--c:${x.c}">${ico(x.i)}</span><span class="mt"><b>${x.t}</b><small>${x.d}</small></span>${x.k==="events"&&NAVSOON?`<span class="hb" title="in the next 7 days">${NAVSOON}</span>`:""}</a>`).join("");
+ openMenu($("#more"),(rows?'<div class="mh">Explore</div>'+rows:"")+(NAVH.includes("edit")?editMenuHtml:""))};
 document.addEventListener("click",()=>{const o=$("#mmenu");if(o)o.remove()});
 
 function route(){
@@ -1187,7 +1298,7 @@ function rec(p,full){
   ${p.photo_url?`<img class="ph" loading="lazy" src="${esc(p.photo_url)}" alt="">`:`<div class="ph">👤</div>`}</div>
   ${ln("Father",P(p.father_id)?lk(P(p.father_id)):"")}${ln("Mother",P(p.mother_id)?lk(P(p.mother_id)):"")}
   ${ln("Spouse",spH)}${kidsH}${ln("Siblings",lks(sibs))}${ln("Grandchildren",lk0(gk))}
-  ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a> <a class="more" style="font-size:.85rem;font-weight:600;padding:4px 10px" href="javascript:toTreeLR(${id})" title="Show in left-to-right tree">🌳 Left-right tree</a>`}</div>`}
+  ${full?`<div class="kv" style="margin-top:8px">${moreRows(p)}</div>${role?"":`<p class="mut">Sign in to see more details.</p>`}`:""}${full?"":`<a class="more" href="#/person/${id}" title="Full record">⋯</a> <a class="more" style="font-size:.85rem;font-weight:600;padding:4px 10px" href="javascript:toTreeLR(${id})" title="Show in left-to-right tree">${ico("tree")} Left-right tree</a>`}</div>`}
 
 /* gender / kothram are signed-in details: hide those filters (and the "not set" labels) when the data is not available */
 const gOn=()=>!!role&&(canEdit()||people.some(p=>p.gender));
@@ -1196,7 +1307,7 @@ let selMode=false;const sel=new Set();let gf="all",kf="all";
 /* admin only: add or rename family trees (stored in ft_trees; needs the admin write policy) */
 function viewTrees(app){
  const rows=TREES.map(t=>`<div class="row" style="gap:6px;margin:6px 0;align-items:center"><span class="mut" style="width:90px">${esc(t.key)}</span><input class="tl" data-k="${esc(t.key)}" value="${esc(t.label)}" style="flex:1"><button class="alt tsave" data-k="${esc(t.key)}">Save</button></div>`).join("");
- app.innerHTML=`<h2>🌳 Trees</h2><div class="mut" style="margin-bottom:6px">Each tree appears as a tab. The key cannot be changed later.</div>${rows}
+ app.innerHTML=`<h2 class="ibtn">${ico("tree")} Trees</h2><div class="mut" style="margin-bottom:6px">Each tree appears as a tab. The key cannot be changed later.</div>${rows}
  <h3 style="margin:14px 0 4px">Add a tree</h3><div class="row" style="gap:6px;flex-wrap:wrap"><input id="nt_l" placeholder="Name shown (e.g. Kumar)" style="flex:1"><input id="nt_k" placeholder="key (a-z, no spaces)" style="flex:1"><button id="nt_add">Add tree</button></div><div id="nt_m" class="mut" style="margin-top:8px"></div>`;
  const msg=t=>$("#nt_m").textContent=t;
  app.querySelectorAll(".tsave").forEach(b=>b.onclick=async()=>{const k=b.dataset.k,v=app.querySelector('.tl[data-k="'+k+'"]').value.trim();if(!v)return msg("Name cannot be empty");
@@ -1675,7 +1786,7 @@ function openBulk(){
 function viewPerson(app,id){
  const p=P(id);
  if(!p){app.innerHTML=`<div class="status warn">Person not found. <a href="#/members" style="text-decoration:underline">Back to members</a></div>`;return}
- app.innerHTML=rec(p,true)+`<div class="row"><button class="alt" onclick="toTreeLR(${id})">🌳 Left-to-right tree</button></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
+ app.innerHTML=rec(p,true)+`<div class="row"><button class="alt" onclick="toTreeLR(${id})"><span class="ibtn">${ico("tree")} Left-to-right tree</span></button></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
   <button class="alt" onclick="addChild(${id})">+ Child</button>
   <button class="alt" onclick="openMarriage(null,${id})">+ Spouse</button>
   <button class="red" onclick="delPerson(${id})">Delete</button></div>`:"")}
@@ -1852,7 +1963,7 @@ function viewUpdate(app){
  <div class="uh">Fill from ancestors</div>
  <div class="chips"><span id="kothb" class="chip">🕉 Kothram</span><span id="nativb" class="chip">📍 Native</span><span id="brb" class="chip">🌿 Family line</span></div>
  <p class="mut" style="margin:2px 0 10px">Kothram, Native place and Family line are worked out from the root ancestors; you preview every change before applying.</p>
- ${role==="admin"?`<div class="uh">Setup</div><div class="chips"><span class="chip" data-go="/trees">🌳 Trees</span></div>`:""}
+ ${role==="admin"?`<div class="uh">Setup</div><div class="chips"><span class="chip" data-go="/trees"><span class="ibtn">${ico("tree")} Trees</span></span></div>`:""}
  <div class="uh">Status</div>
  <div class="mut" style="margin:0 0 4px">Alive / Deceased: tick people below, then Set status.</div>
  <div class="sb"><input id="uq" placeholder="Search name or ID…"><button id="uqc" class="qc" aria-label="Clear search" hidden>✕</button></div>
@@ -1897,7 +2008,7 @@ function viewContacts(app){
  const draw=()=>{$("#cqc").hidden=!cq;const t=cq.trim().toLowerCase();
   const r=people.filter(p=>(ttree==="all"||p.tree===ttree)&&(p.phone||p.email||p.alt_phone)&&(!t||[String(p.id),fullName(p),p.phone,p.email,p.alt_phone].some(v=>v&&String(v).toLowerCase().includes(t)))).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
   $("#cc").textContent=`${r.length} contact${r.length===1?"":"s"}`;
-  $("#cb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(p.name||"Unnamed")}</a>${hintHtml(p)}</td><td data-l="Phone">${p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:""}</td><td data-l="Email">${p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:""}</td><td data-l="Alt phone">${p.alt_phone?`<a href="tel:${esc(p.alt_phone)}">${esc(p.alt_phone)}</a>`:""}</td><td class="tc"><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
+  $("#cb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(p.name||"Unnamed")}</a>${hintHtml(p)}</td><td data-l="Phone">${p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:""}</td><td data-l="Email">${p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:""}</td><td data-l="Alt phone">${p.alt_phone?`<a href="tel:${esc(p.alt_phone)}">${esc(p.alt_phone)}</a>`:""}</td><td class="tc"><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">${ico("tree")}</a></td></tr>`).join("")};
  bindTree(draw);
  $("#cq").oninput=e=>{cq=e.target.value;draw()};
  $("#cqc").onclick=()=>{cq="";$("#cq").value="";draw()};
@@ -1923,7 +2034,7 @@ function viewFilter(app){
   if(!act.length){$("#fc").textContent="Pick a field and a value.";$("#fb").innerHTML="";return}
   const r=people.filter(p=>(ttree==="all"||p.tree===ttree)&&act.every(x=>x.v===UNSET?!nfv(x.f,p[x.f]):nfv(x.f,p[x.f])===x.v)).sort((a,b)=>fullName(a).localeCompare(fullName(b)));
   $("#fc").textContent=`${r.length} ${r.length===1?"person":"people"}`;
-  $("#fb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(p.name||"Unnamed")}</a>${hintHtml(p)}${act.some(x=>x.f==="natchathiram")&&p.natchathiram?`<div class="mut" style="font-size:.85rem">${esc(p.natchathiram.trim())}</div>`:""}</td><td class="tc"><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">🌳</a></td></tr>`).join("")};
+  $("#fb").innerHTML=r.map(p=>`<tr><td>${p.id}</td><td><a href="#/person/${p.id}">${esc(p.name||"Unnamed")}</a>${hintHtml(p)}${act.some(x=>x.f==="natchathiram")&&p.natchathiram?`<div class="mut" style="font-size:.85rem">${esc(p.natchathiram.trim())}</div>`:""}</td><td class="tc"><a href="#" class="tl" data-id="${p.id}" title="Left-to-right tree" aria-label="Left-to-right tree">${ico("tree")}</a></td></tr>`).join("")};
  $("#fb").onclick=e=>{const a=e.target.closest(".tl");if(a){e.preventDefault();toTreeLR(+a.dataset.id)}};
  const fillVals=i=>{const f=sel2[i].f,v=$("#fv"+i);
   v.innerHTML=`<option value="">Value…</option>`+(f?vals(f).map(([k,n,l])=>`<option value="${esc(k)}">${esc(l)} (${n})</option>`).join(""):"");v.disabled=!f;
