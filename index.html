@@ -181,6 +181,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 .vks{display:flex;justify-content:center;align-items:flex-start;gap:24px}
 .vu{display:inline-flex;align-items:center;gap:3px;position:relative;z-index:1}
 .vw{color:#c2185b;font-size:.8rem}
+small.so{display:inline-block;min-width:13px;height:13px;line-height:13px;border-radius:7px;background:#c2185b;color:#fff;font-size:.6rem;font-weight:700;text-align:center;margin-left:1px;vertical-align:1px}
 .vt .pc{min-width:0;width:116px;padding:4px 6px;gap:5px;text-align:left}
 .vt .pc img{width:28px;height:28px}
 .vt .pc .n{font-size:.75rem;line-height:1.2}
@@ -342,7 +343,7 @@ const PF=[
 ["notes","Notes","area"],["photo_url","Photo","photo"]];
 const MF=[
 ["person1_id","Person 1","person"],["person2_id","Person 2","person"],
-["status","Status","sel",["engaged","married","separated","divorced","widowed"]],
+["status","Status","sel",["engaged","married","separated","divorced","widowed"]],["spouse_order","Spouse order (1 = first, 2 = second… for someone with more than one partner)","num"],
 ["engagement_date","Engagement date","date"],["engagement_place","Engagement place","text"],
 ["marriage_date","Wedding date","date"],["wedding_place","Wedding place","text"],
 ["end_date","Separation / divorce date","date"],["notes","Notes","area"],["photo_url","Photo","photo"]];
@@ -375,7 +376,11 @@ function card(p,o){
 const cardNN=p=>card(p,{nn:1});
 const bo=p=>{const n=Number(p.birth_order);return p.birth_order==null||!isFinite(n)?null:n};
 function cmp(a,b){const x=bo(a),y=bo(b);if(x===null&&y===null)return a.id-b.id;if(x===null)return 1;if(y===null)return-1;return x-y||a.id-b.id}
-const spouseIds=id=>[...new Set(marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>m.person1_id===id?m.person2_id:m.person1_id))];
+const mord=m=>m.spouse_order==null||m.spouse_order===""||isNaN(Number(m.spouse_order))?1e9:Number(m.spouse_order);
+const mcmp=(a,b)=>mord(a)-mord(b)||a.id-b.id;
+const spouseIds=id=>[...new Set(marriages.filter(m=>m.person1_id===id||m.person2_id===id).sort(mcmp).map(m=>m.person1_id===id?m.person2_id:m.person1_id))];
+const soTag=(i,n)=>n>1?`<small class="so" title="Spouse ${i+1}">${i+1}</small>`:"";
+const ordW=n=>n+(["th","st","nd","rd"][(n%100>10&&n%100<14)?0:Math.min(n%10,4)%4]||"th");
 const childrenOf=id=>people.filter(c=>c.father_id===id||c.mother_id===id).sort(cmp);
 const siblingsOf=p=>people.filter(o=>o.id!==p.id&&((p.father_id&&o.father_id===p.father_id)||(p.mother_id&&o.mother_id===p.mother_id))).sort(cmp);
 const links=ps=>ps.length?`<div class="grid">${ps.map(card).join("")}</div>`:`<span class="mut">Not recorded</span>`;
@@ -1070,7 +1075,7 @@ function horizHtml(T,pool){
  const hc=(p,num)=>`<div class="hc" data-c="${p.id}">${card(p,num?undefined:{nn:1})}</div>`;
  function render(n,num){
   const hid=hiddenOf(n);
-  const stack=`<div class="hcp">${hc(n.p,num)}${n.sps.map(s=>`<span class="heart" data-h="${s.id}">♥</span>${hc(s,false)}`).join("")}${hid?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${hid} ${hid>1?"children":"child"} ▸</a>`:""}</div>`;
+  const stack=`<div class="hcp">${hc(n.p,num)}${n.sps.map((s,si)=>`<span class="heart" data-h="${s.id}">♥${soTag(si,n.sps.length)}</span>${hc(s,false)}`).join("")}${hid?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${hid} ${hid>1?"children":"child"} ▸</a>`:""}</div>`;
   if(!n.groups.length)return`<div class="hn">${stack}</div>`;
   const multi=n.groups.length>1;
   return`<div class="hn">${stack}<div class="hk">${n.groups.map((g,gi)=>{
@@ -1214,7 +1219,7 @@ function vertHtml(T,pool,lr){
     const k=sp?String(sp.id):(all.length===1?String(all[0].id):"s");
     if(!gs.has(k))gs.set(k,[]);gs.get(k).push(c)});
    const ord=k=>k==="s"?-1:all.findIndex(s=>String(s.id)===k);
-   const head=`<div class="vu">${vc(p,isKid)}${all.map(s=>`<span class="vw" data-h="${s.id}">♥</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
+   const head=`<div class="vu">${vc(p,isKid)}${all.map((s,si)=>`<span class="vw" data-h="${s.id}">♥${soTag(si,all.length)}</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
    const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
     `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c,true)}</li>`;asChild.add(c.id);return unit(c,np,true,d+1)}).join("")}</ul></div>`);
    return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}${cut?`<div class="hmore">+${kids.length} ${kids.length>1?"children":"child"}</div>`:""}</li>`}
@@ -1276,13 +1281,13 @@ function moreRows(p){
 function rec(p,full){
  const per=period(p),id=p.id;
  const ln=(l,h)=>h?`<div class="ml"><b>${l}:</b> ${h}</div>`:"";
- const sps=marriages.filter(m=>m.person1_id===id||m.person2_id===id).map(m=>({m,o:P(m.person1_id===id?m.person2_id:m.person1_id)})).filter(x=>x.o);
- const spH=sps.map(({m,o})=>{
+ const sps=marriages.filter(m=>m.person1_id===id||m.person2_id===id).sort(mcmp).map(m=>({m,o:P(m.person1_id===id?m.person2_id:m.person1_id)})).filter(x=>x.o);
+ const spH=sps.map(({m,o},si)=>{
   let extra="";
   if(full){const bits=[m.status&&m.status!=="married"?m.status:"",m.engagement_date?"engaged "+fmtDate(m.engagement_date)+(m.engagement_place?" at "+esc(m.engagement_place):""):"",m.marriage_date?"wedding "+fmtDate(m.marriage_date)+(m.wedding_place?" at "+esc(m.wedding_place):""):"",m.end_date?"ended "+fmtDate(m.end_date):""].filter(Boolean).join(", ");
    if(bits)extra=` <span class="mut">(${bits})</span>`;
    if(canEdit())extra+=` <a class="lk" href="javascript:openMarriage(${m.id})">✎</a> <a class="lk" style="color:var(--red)" href="javascript:delMarriage(${m.id})">🗑</a>`}
-  return lk(o)+extra}).join(", ");
+  return (sps.length>1?`<span class="mut">${ordW(si+1)}:</span> `:"")+lk(o)+extra}).join(", ");
  const kids=childrenOf(id),sibs=siblingsOf(p);
  const oth=c=>c.father_id===id?c.mother_id:c.father_id,seen=new Set(),groups=[];
  sps.forEach(({o})=>{if(seen.has(o.id))return;seen.add(o.id);const g=kids.filter(c=>oth(c)===o.id);if(g.length)groups.push([o,g])});
@@ -1642,7 +1647,7 @@ function viewBulkUpdate(app){
   G.push(["Grandparents",gp]);
   G.push(["Parents",[f?{p:f,rel:"Father",link:{who:s.id,field:"father_id"}}:{miss:"Father",addrel:"dad"},m?{p:m,rel:"Mother",link:{who:s.id,field:"mother_id"}}:{miss:"Mother",addrel:"mom"}]]);
   G.push(["Selected person",[{p:s,rel:"Selected",sel:1}]]);
-  G.push(["Spouse",spouseIds(s.id).map(P).filter(Boolean).map(p=>({p,rel:gl(p,"Husband","Wife","Spouse")}))]);
+  {const sl=spouseIds(s.id).map(P).filter(Boolean);G.push(["Spouse",sl.map((p,i)=>({p,rel:gl(p,"Husband","Wife","Spouse")+(sl.length>1?" "+ordW(i+1):"")}))])}
   G.push(["Siblings",siblingsOf(s).map(p=>({p,rel:gl(p,"Brother","Sister","Sibling")}))]);
   const kids=people.filter(c=>c.father_id===s.id||c.mother_id===s.id).sort(cmp),gk=[];
   G.push(["Children",kids.map(c=>({p:c,rel:gl(c,"Son","Daughter","Child"),link:{who:c.id,field:c.father_id===s.id?"father_id":"mother_id"}}))]);
