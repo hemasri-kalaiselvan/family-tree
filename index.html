@@ -30,8 +30,8 @@ svg.ic.fl{fill:currentColor;stroke:none}
 #ntools a:hover{background:#ffffff2a;border-color:#ffffff80}
 #ntools a.on{background:#ffffff38;border-color:#fff}
 #ntools.ico a{padding:7px 10px}#ntools.ico a .lb{display:none}
-.hb{min-width:18px;height:18px;border-radius:9px;background:#ff5252;color:#fff;font-size:.7rem;font-weight:700;display:inline-grid;place-items:center;padding:0 5px;line-height:1}
-#ntools.ico .hb{position:absolute;top:-6px;right:-6px;box-shadow:0 0 0 2px var(--pri)}
+.hbd{min-width:18px;height:18px;border-radius:9px;background:#ff5252;color:#fff;font-size:.7rem;font-weight:700;display:inline-grid;place-items:center;padding:0 5px;line-height:1}
+#ntools.ico .hbd{position:absolute;top:-6px;right:-6px;box-shadow:0 0 0 2px var(--pri)}
 .hacts{display:flex;align-items:center;gap:4px;margin-left:auto}
 #ntools+.hacts{margin-left:0}
 #who,#more{position:relative;width:38px;height:38px;padding:0;display:grid;place-items:center;cursor:pointer;background:#ffffff14;border:1px solid #ffffff38;border-radius:50%;color:#fff;font-size:1rem}
@@ -197,7 +197,7 @@ body.bulkon #top{bottom:82px}body.bulkon main{padding-bottom:90px}
 #mmenu .mt{display:flex;flex-direction:column;min-width:0;flex:1}
 #mmenu .mt b{font-size:.98rem}
 #mmenu .mt small{color:var(--mut);font-size:.78rem;line-height:1.25}
-#mmenu .hb{margin-left:auto}
+#mmenu .hbd{margin-left:auto}
 a.tl{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#e7eef8;color:var(--pri)}
 a.tl:hover{background:#d3e0f4}
 a.tl svg.ic{width:20px;height:20px}
@@ -417,7 +417,7 @@ function renderNav(){
  $("#ntrees").innerHTML=TREES.map(t=>{const u="/"+t.slug;return`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")?"on":""}">${esc(t.label)}</a>`}).join("");
  NAVSOON=soonCount();
  const act=k=>k==="members"?(h==="/members"||h.startsWith("/person")):h==="/"+k;
- const badge=k=>k==="events"&&NAVSOON?`<span class="hb">${NAVSOON}</span>`:"";
+ const badge=k=>k==="events"&&NAVSOON?`<span class="hbd">${NAVSOON}</span>`:"";
  $("#ntools").innerHTML=TOOLS.map(x=>`<a href="#${x.u}" data-k="${x.k}" title="${x.t}" class="${act(x.k)?"on":""}" style="--h:${x.h}">${ico(x.i)}<span class="lb">${x.t}</span>${badge(x.k)}</a>`).join("")+
   (canEdit()?`<a href="#" id="editb" data-k="edit" title="Edit" aria-label="Edit" class="${["/add","/update","/bulk","/bupdate","/import","/trees","/location"].includes(h)?"on":""}" style="--h:#fde68a">${ico("edit")}<span class="lb">Edit</span></a>`:"");
  if($("#editb"))$("#editb").onclick=e=>{e.preventDefault();e.stopPropagation();const o=$("#mmenu");if(o){o.remove();return}openMenu($("#editb"),editMenuHtml)};
@@ -466,7 +466,7 @@ $("#more").onclick=e=>{e.stopPropagation();const o=$("#mmenu");if(o){o.remove();
  $("#more").classList.remove("pulse");
  const h=location.hash.slice(1)||"/";
  const act=k=>k==="members"?(h==="/members"||h.startsWith("/person")):h==="/"+k;
- const rows=TOOLS.filter(x=>NAVH.includes(x.k)).map(x=>`<a href="#${x.u}" class="${act(x.k)?"on":""}"><span class="mic" style="--c:${x.c}">${ico(x.i)}</span><span class="mt"><b>${x.t}</b><small>${x.d}</small></span>${x.k==="events"&&NAVSOON?`<span class="hb" title="in the next 7 days">${NAVSOON}</span>`:""}</a>`).join("");
+ const rows=TOOLS.filter(x=>NAVH.includes(x.k)).map(x=>`<a href="#${x.u}" class="${act(x.k)?"on":""}"><span class="mic" style="--c:${x.c}">${ico(x.i)}</span><span class="mt"><b>${x.t}</b><small>${x.d}</small></span>${x.k==="events"&&NAVSOON?`<span class="hbd" title="in the next 7 days">${NAVSOON}</span>`:""}</a>`).join("");
  openMenu($("#more"),(rows?'<div class="mh">Explore</div>'+rows:"")+(NAVH.includes("edit")?editMenuHtml:""))};
 document.addEventListener("click",()=>{const o=$("#mmenu");if(o)o.remove()});
 
