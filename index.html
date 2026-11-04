@@ -240,10 +240,10 @@ a.tl svg.ic{width:20px;height:20px}
 .evw{flex:none;font-size:.78rem;color:#c2185b;font-weight:600;white-space:nowrap}
 .zfw.zfs{position:fixed;inset:0;z-index:60;background:var(--bg);padding:8px;overflow:hidden}
 .zfs .zst{position:static}
-.zfs .zw{overscroll-behavior:contain}
+.zfs .zw{overscroll-behavior:contain;overflow:auto}
 .zbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0}
 .zbar button{padding:4px 14px;min-width:42px}
-.zw{overflow:auto;height:calc(100vh - var(--hh,52px) - 160px);min-height:240px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior-x:contain;overscroll-behavior-y:auto;touch-action:pan-x pan-y}
+.zw{overflow-x:auto;overflow-y:hidden;height:auto;min-height:120px;background:#fff;border:1px solid var(--line);border-radius:12px;overscroll-behavior-x:contain;overscroll-behavior-y:auto;touch-action:pan-x pan-y}
 .zs{position:relative}
 .zi{position:absolute;left:0;top:0;transform-origin:0 0}
 .zi .hwrap,.zi .vtw{overflow:visible;width:max-content;margin:0;border:0;border-radius:0}
@@ -384,6 +384,7 @@ function cmp(a,b){const x=bo(a),y=bo(b);if(x===null&&y===null)return a.id-b.id;i
 const mord=m=>m.spouse_order==null||m.spouse_order===""||isNaN(Number(m.spouse_order))?1e9:Number(m.spouse_order);
 const mcmp=(a,b)=>mord(a)-mord(b)||a.id-b.id;
 const spouseIds=id=>[...new Set(marriages.filter(m=>m.person1_id===id||m.person2_id===id).sort(mcmp).map(m=>m.person1_id===id?m.person2_id:m.person1_id))];
+const hTagG=(L,s)=>{const a=spouseIds(L),b=spouseIds(s);return a.length>1?soTag(a.indexOf(s),a.length):(b.length>1?soTag(b.indexOf(L),b.length):"")};
 const soTag=(i,n)=>n>1?`<small class="so" title="Spouse ${i+1}">${i+1}</small>`:"";
 const ordW=n=>n+(["th","st","nd","rd"][(n%100>10&&n%100<14)?0:Math.min(n%10,4)%4]||"th");
 const childrenOf=id=>people.filter(c=>c.father_id===id||c.mother_id===id).sort(cmp);
@@ -668,7 +669,8 @@ function zoomWrap(sel){
  const zi=document.createElement('div');zi.className='zi';
  const fw=document.createElement('div');fw.className='zfw';
  el.parentNode.insertBefore(fw,el);fw.appendChild(stk);if(tools)stk.appendChild(tools);stk.appendChild(bar);fw.appendChild(zw);
- const sizeZw=()=>{const full=fw.classList.contains('zfs'),hh=full?0:((document.querySelector('header')||{}).offsetHeight||52);if(!full)document.documentElement.style.setProperty('--hh',hh+'px');zw.style.height=Math.max(220,innerHeight-hh-stk.offsetHeight-(full?20:12))+'px'};
+ const availH=()=>{const full=fw.classList.contains('zfs'),hh=full?0:((document.querySelector('header')||{}).offsetHeight||52);return Math.max(220,innerHeight-hh-stk.offsetHeight-(full?20:12))};
+ const sizeZw=()=>{const full=fw.classList.contains('zfs'),hh=full?0:((document.querySelector('header')||{}).offsetHeight||52);if(!full)document.documentElement.style.setProperty('--hh',hh+'px');zw.style.height=full?availH()+'px':''};
  const fb=bar.querySelector('[data-z="full"]');
  const setFS=on=>{fw.classList.toggle('zfs',on);document.body.style.overflow=on?'hidden':'';fb.textContent=on?'✕':'⛶';fb.title=on?'Exit full screen':'Full screen';
   sizeZw();if(on)window.scrollTo(0,0)};
@@ -676,31 +678,35 @@ function zoomWrap(sel){
  zw.appendChild(zs);zs.appendChild(zi);zi.appendChild(el);
  const Z={s:1,touched:false};
  const size=()=>({w:Math.ceil(el.scrollWidth),h:Math.ceil(el.scrollHeight)});
- const apply=(ns,ax,ay)=>{
+ const apply=(ns,ax,ay,pg)=>{
   ns=Math.max(.03,Math.min(6,ns));
+  const fs=fw.classList.contains('zfs');
   const x=ax==null?zw.clientWidth/2:ax,y=ay==null?zw.clientHeight/2:ay;
   const cx=(zw.scrollLeft+x)/Z.s,cy=(zw.scrollTop+y)/Z.s;
+  let pgY=0,pgC=0;
+  if(pg&&!fs){const r0=zw.getBoundingClientRect(),t0=stk.getBoundingClientRect().bottom;pgY=ay!=null?ay:(Math.max(r0.top,t0)+Math.min(r0.bottom,innerHeight))/2-r0.top;pgC=pgY/Z.s}
   Z.s=ns;const d=size();
   zi.style.transform='scale('+ns+')';
   zs.style.width=Math.ceil(d.w*ns)+'px';zs.style.height=Math.ceil(d.h*ns)+'px';
   zw.scrollLeft=cx*ns-x;zw.scrollTop=cy*ns-y;
+  if(pg&&!fs)window.scrollBy(0,pgC*ns-pgY);
   const zp=document.getElementById('zp');if(zp)zp.textContent=Math.round(ns*100)+'%'};
  Z.set=v=>{Z.touched=true;apply(v)};
- Z.fit=()=>{const d=size();apply(Math.min(zw.clientWidth/d.w,zw.clientHeight/d.h,1));zw.scrollLeft=0;zw.scrollTop=0};
+ Z.fit=()=>{const d=size();apply(Math.min(zw.clientWidth/d.w,availH()/d.h,1));zw.scrollLeft=0;zw.scrollTop=0};
  Z.def=()=>{apply(0.7);zw.scrollLeft=0;zw.scrollTop=0};
  Z.refit=()=>{if(!Z.touched)Z.def()};
  bar.onclick=e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.z==='full')setFS(!fw.classList.contains('zfs'));
   else if(b.dataset.z==='fit'){Z.touched=false;Z.fit()}
-  else{Z.touched=true;apply(Z.s*(b.dataset.z==='in'?1.25:0.8))}};
+  else{Z.touched=true;apply(Z.s*(b.dataset.z==='in'?1.25:0.8),null,null,true)}};
  zw.addEventListener('wheel',e=>{if(!e.ctrlKey)return;e.preventDefault();const r=zw.getBoundingClientRect();
-  Z.touched=true;apply(Z.s*(e.deltaY<0?1.1:0.9),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  Z.touched=true;apply(Z.s*(e.deltaY<0?1.1:0.9),e.clientX-r.left,e.clientY-r.top,true)},{passive:false});
  let d0=0,s0=1;
  const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
  zw.addEventListener('touchstart',e=>{if(e.touches.length===2){d0=dist(e.touches);s0=Z.s}},{passive:true});
  zw.addEventListener('touchmove',e=>{if(e.touches.length!==2||!d0)return;e.preventDefault();
   const r=zw.getBoundingClientRect(),t=e.touches;
-  Z.touched=true;apply(s0*dist(t)/d0,(t[0].clientX+t[1].clientX)/2-r.left,(t[0].clientY+t[1].clientY)/2-r.top)},{passive:false});
+  Z.touched=true;apply(s0*dist(t)/d0,(t[0].clientX+t[1].clientX)/2-r.left,(t[0].clientY+t[1].clientY)/2-r.top,true)},{passive:false});
  zw.addEventListener('touchend',e=>{if(e.touches.length<2)d0=0});
  Z.isFS=()=>fw.classList.contains('zfs');Z.fs=on=>setFS(on);
  window.curZ=Z;
@@ -720,14 +726,17 @@ function treeHtml(T,pool){
   const placed=new Set();
   function unit(p,depth,path){
    placed.add(p.id);
-   const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
+   const main=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
+   const link=new Map(),co=[];
+   main.forEach(s=>spouseIds(s.id).forEach(o=>{const po=P(o);if(po&&o!==p.id&&!path.includes(o)&&!placed.has(o)&&!hasPar(po)&&!main.some(x=>x.id===o)&&!co.some(x=>x.id===o)){co.push(po);link.set(o,s.id)}}));
+   const all=[...main,...co];
    const fresh=all.filter(s=>!placed.has(s.id));
    fresh.forEach(s=>placed.add(s.id));
    const ids=[p.id,...fresh.map(s=>s.id)];
    const key=c=>Math.max(ids.indexOf(c.father_id),ids.indexOf(c.mother_id));
    const np=path.concat(ids);
    const kids=people.filter(c=>(ids.includes(c.father_id)||ids.includes(c.mother_id))&&!np.includes(c.id)).sort((x,y)=>key(x)-key(y)||cmp(x,y));
-   const couple=`<div class="couple"><span class="tg">${kids.length?"▸":""}</span>${mainCard(p)}${all.map(s=>`<span class="heart">♥</span>${fresh.includes(s)?mainCard(s):stubCard(s)}`).join("")}</div>`;
+   const couple=`<div class="couple"><span class="tg">${kids.length?"▸":""}</span>${mainCard(p)}${all.map(s=>`<span class="heart">♥${hTagG(link.get(s.id)||p.id,s.id)}</span>${fresh.includes(s)?mainCard(s):stubCard(s)}`).join("")}</div>`;
    if(!kids.length)return`<div>${couple}</div>`;
    const kh=kids.map(k=>{
     if(placed.has(k.id)||hold.has(k.id))return`<div><div class="couple"><span class="tg"></span>${stubCard(k)}</div></div>`;
@@ -1033,6 +1042,9 @@ function horizHtml(T,pool){
   placed.add(p.id);
   const sps=spouseIds(p.id).map(P).filter(s=>s&&!depth.has(s.id)&&!placed.has(s.id));
   sps.forEach(s=>placed.add(s.id));
+  /* a wife's other husbands (or a husband's wife's other husbands) who are not placed anywhere else join the stack, so nobody is left in 'Not yet linked' */
+  const link=new Map();
+  [...sps].forEach(s=>spouseIds(s.id).forEach(o=>{const po=P(o);if(po&&o!==p.id&&!depth.has(o)&&!placed.has(o)){sps.push(po);placed.add(o);link.set(o,s.id)}}));
   const ids=[p.id,...sps.map(s=>s.id)];
   spouseIds(p.id).forEach(s=>{if(P(s)&&!ids.includes(s)&&(depth.has(s)||placed.has(s)))pairs.add(pk(p.id,s))});
   const homed=people.filter(c=>home.get(c.id)===p.id&&!placed.has(c.id));
@@ -1043,7 +1055,7 @@ function horizHtml(T,pool){
    if(k[0]==="l")pairs.add(pk(p.id,+k.slice(1)));
    if(k[0]==="m"){const[a,b]=k.slice(1).split(":").map(Number);pairs.add(pk(a,b))}
    return{k,kids:g.sort(cmp).map(build)}});
-  const node={p,sps,groups};
+  const node={p,sps,groups,link};
   nodes.set(p.id,node);sps.forEach(s=>nodes.set(s.id,node));
   return node}
  const make=()=>{placed=new Set();pairs=new Set();nodes=new Map();return starts.map(id=>build(P(id)))};
@@ -1078,9 +1090,12 @@ function horizHtml(T,pool){
  const hiddenOf=n=>{if((depth.get(n.p.id)||0)<depthN)return 0;
   return new Set(feeds(n.p.id).concat(n.sps.map(s=>s.id)).flatMap(i=>childrenOf(i).filter(c=>!placed.has(c.id)).map(c=>c.id))).size};
  const hc=(p,num)=>`<div class="hc" data-c="${p.id}">${card(p,num?undefined:{nn:1})}</div>`;
+ /* order number of a marriage, from the point of view of whoever has more than one partner */
+ const hTag=(n,s)=>{const L=(n.link&&n.link.get(s.id))||n.p.id,a=spouseIds(L),b=spouseIds(s.id);
+  return a.length>1?soTag(a.indexOf(s.id),a.length):(b.length>1?soTag(b.indexOf(L),b.length):"")};
  function render(n,num){
   const hid=hiddenOf(n);
-  const stack=`<div class="hcp">${hc(n.p,num)}${n.sps.map((s,si)=>`<span class="heart" data-h="${s.id}">♥${soTag(si,n.sps.length)}</span>${hc(s,false)}`).join("")}${hid?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${hid} ${hid>1?"children":"child"} ▸</a>`:""}</div>`;
+  const stack=`<div class="hcp">${hc(n.p,num)}${n.sps.map(s=>`<span class="heart" data-h="${s.id}">♥${hTag(n,s)}</span>${hc(s,false)}`).join("")}${hid?`<a class="hmore" href="javascript:void(0)" onclick="hstart(${n.p.id})">${hid} ${hid>1?"children":"child"} ▸</a>`:""}</div>`;
   if(!n.groups.length)return`<div class="hn">${stack}</div>`;
   const multi=n.groups.length>1;
   return`<div class="hn">${stack}<div class="hk">${n.groups.map((g,gi)=>{
@@ -1210,7 +1225,10 @@ function vertHtml(T,pool,lr){
   const placed=new Set(),asChild=new Set();
   function unit(p,path,isKid,d){
    placed.add(p.id);
-   const all=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
+   const main=spouseIds(p.id).map(P).filter(s=>s&&!path.includes(s.id));
+   const link=new Map(),co=[];
+   main.forEach(s=>spouseIds(s.id).forEach(o=>{const po=P(o);if(po&&o!==p.id&&!path.includes(o)&&!placed.has(o)&&!hasPar(po)&&!main.some(x=>x.id===o)&&!co.some(x=>x.id===o)){co.push(po);link.set(o,s.id)}}));
+   const all=[...main,...co];
    const fresh=all.filter(s=>!placed.has(s.id));
    fresh.forEach(s=>placed.add(s.id));
    const ids=[p.id,...fresh.map(s=>s.id)];
@@ -1220,11 +1238,11 @@ function vertHtml(T,pool,lr){
    const gs=new Map();
    const cut=d>=depthN&&kids.length>0;   /* level filter: stop here and just show how many children are hidden */
    (cut?[]:kids).forEach(c=>{
-    const sp=all.find(s=>s.id===c.father_id||s.id===c.mother_id);
+    const sp=co.find(s=>s.id===c.father_id||s.id===c.mother_id)||all.find(s=>s.id===c.father_id||s.id===c.mother_id);
     const k=sp?String(sp.id):(all.length===1?String(all[0].id):"s");
     if(!gs.has(k))gs.set(k,[]);gs.get(k).push(c)});
    const ord=k=>k==="s"?-1:all.findIndex(s=>String(s.id)===k);
-   const head=`<div class="vu">${vc(p,isKid)}${all.map((s,si)=>`<span class="vw" data-h="${s.id}">♥${soTag(si,all.length)}</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
+   const head=`<div class="vu">${vc(p,isKid)}${all.map(s=>`<span class="vw" data-h="${s.id}">♥${hTagG(link.get(s.id)||p.id,s.id)}</span>${fresh.includes(s)?vc(s):vr(s)}`).join("")}</div>`;
    const groups=[...gs.entries()].sort((x,y)=>ord(x[0])-ord(y[0])).map(([k,g])=>
     `<div class="vg" data-from="${k}"><ul>${g.map(c=>{if(placed.has(c.id)||hold.has(c.id))return`<li>${vr(c,true)}</li>`;asChild.add(c.id);return unit(c,np,true,d+1)}).join("")}</ul></div>`);
    return`<li>${head}${groups.length?`<div class="vks">${groups.join("")}</div>`:""}${cut?`<div class="hmore">+${kids.length} ${kids.length>1?"children":"child"}</div>`:""}</li>`}
