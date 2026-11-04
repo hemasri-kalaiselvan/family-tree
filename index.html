@@ -425,7 +425,7 @@ const editMenuHtml='<div class="mh">Edit</div><a href="#/add"><span class="mic" 
 function renderNav(){
  const h=location.hash.slice(1)||"/";
  $("#lg").innerHTML=ico("logo");
- $("#ntrees").innerHTML=TREES.map(t=>{const u="/"+t.slug;return`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")?"on":""}">${esc(t.label)}</a>`}).join("");
+ $("#ntrees").innerHTML=TREES.map(t=>{const u="/"+t.slug;const ph=h.startsWith("/tree/")?P(+h.split("/")[2]):null;return`<a href="#${u}" class="${h===u||(u==="/"+TREES[0].slug&&h==="/")||(ph&&ph.tree===t.key)?"on":""}">${esc(t.label)}</a>`}).join("");
  NAVSOON=soonCount();
  const act=k=>k==="members"?(h==="/members"||h.startsWith("/person")):h==="/"+k;
  const badge=k=>k==="events"&&NAVSOON?`<span class="hbd">${NAVSOON}</span>`:"";
@@ -499,6 +499,8 @@ function route(){
  if(a==="members")return viewMembers(app);
  if(a==="update"){if(canEdit())return viewUpdate(app);location.hash="#/login";return}
  if(a==="person")return viewPerson(app,+b);
+ if(a==="tree"&&b){const pp=P(+b);if(pp){lay="lrt";st[pp.tree]="all";depthV="all";depthN=99;pendJump=pp.id;return viewTree(app,pp.tree)}
+  app.innerHTML=`<div class="status warn">Person not found. <a href="#/" style="text-decoration:underline">Open the tree</a></div>`;return}
  if(a==="add"){if(canEdit()){app.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Add member</h2><a class="lk" href="#/bulk">Bulk add ›</a></div><button id="addone">➕ Add a single member</button>';$("#addone").onclick=()=>openPerson();openPerson()}else location.hash="#/login";return}
  const tt=TREES.find(t=>t.slug===a);
  viewTree(app,tt?tt.key:TREES[0].key)}
@@ -600,7 +602,13 @@ const fo={},st={};let pendJump=null;
 function toTreeLR(id){
  const p=P(id);if(!p)return;
  lay="lrt";st[p.tree]="all";depthV="all";depthN=99;pendJump=id;
- location.hash="#/"+treeSlug(p.tree)}
+ if(location.hash==="#/tree/"+id)route();else location.hash="#/tree/"+id}
+/* shareable link: opens the Left-right tree centred on this person */
+function treeLink(id){return location.href.split("#")[0]+"#/tree/"+id}
+async function shareTree(id){
+ const p=P(id),url=treeLink(id),name=p?dispName(p):"Family tree";
+ try{if(navigator.share){await navigator.share({title:name+" - Family Tree",url});return}}catch(e){if(e&&e.name==="AbortError")return}
+ try{await navigator.clipboard.writeText(url);alert("Link copied:\n"+url)}catch(e){prompt("Copy this link:",url)}}
 function fcard(p,cur){
  const per=period(p);
  return`<a class="pc ${cur?"cur":""}" href="javascript:void(0)" onclick="refocus(${p.id})">`+
@@ -1817,7 +1825,7 @@ function openBulk(){
 function viewPerson(app,id){
  const p=P(id);
  if(!p){app.innerHTML=`<div class="status warn">Person not found. <a href="#/members" style="text-decoration:underline">Back to members</a></div>`;return}
- app.innerHTML=rec(p,true)+`<div class="row"><button class="alt" onclick="toTreeLR(${id})"><span class="ibtn">${ico("tree")} Left-to-right tree</span></button></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
+ app.innerHTML=rec(p,true)+`<div class="row"><button class="alt" onclick="toTreeLR(${id})"><span class="ibtn">${ico("tree")} Left-to-right tree</span></button> <button class="alt" onclick="shareTree(${id})">🔗 Share tree link</button></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
   <button class="alt" onclick="addChild(${id})">+ Child</button>
   <button class="alt" onclick="openMarriage(null,${id})">+ Spouse</button>
   <button class="red" onclick="delPerson(${id})">Delete</button></div>`:"")}
