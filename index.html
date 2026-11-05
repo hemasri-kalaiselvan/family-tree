@@ -207,6 +207,7 @@ a.tl{display:inline-grid;place-items:center;width:34px;height:34px;border-radius
 a.tl:hover{background:#d3e0f4}
 a.tl svg.ic{width:20px;height:20px}
 .ibtn{display:inline-flex;align-items:center;gap:6px}
+.split{display:inline-flex}.split button:first-child{border-top-right-radius:0;border-bottom-right-radius:0}.split button:last-child{border-top-left-radius:0;border-bottom-left-radius:0;border-left:0;padding-left:12px;padding-right:12px}
 .tw{overflow-x:auto}.ct{width:100%;border-collapse:collapse;font-size:.9rem}.ct th,.ct td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ct th{color:var(--mut);font-weight:700}.ct a{color:var(--ink)}
 @media(max-width:700px){
 .ct thead{display:none}.ct,.ct tbody{display:block}
@@ -1825,7 +1826,7 @@ function openBulk(){
 function viewPerson(app,id){
  const p=P(id);
  if(!p){app.innerHTML=`<div class="status warn">Person not found. <a href="#/members" style="text-decoration:underline">Back to members</a></div>`;return}
- app.innerHTML=rec(p,true)+`<div class="row"><button class="alt" onclick="toTreeLR(${id})"><span class="ibtn">${ico("tree")} Left-to-right tree</span></button> <button class="alt" onclick="shareTree(${id})">🔗 Share left-right link</button></div><div class="row"><button class="alt" onclick="toTreeLR(${id},'vert')"><span class="ibtn">${ico("tree")} Top-down tree</span></button> <button class="alt" onclick="shareTree(${id},'vert')">🔗 Share top-down link</button></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
+ app.innerHTML=rec(p,true)+`<div class="row"><span class="split"><button class="alt" onclick="toTreeLR(${id})"><span class="ibtn">${ico("tree")} Left-to-right</span></button><button class="alt" title="Copy link" aria-label="Share left-to-right link" onclick="shareTree(${id})">🔗</button></span> <span class="split"><button class="alt" onclick="toTreeLR(${id},'vert')"><span class="ibtn">${ico("tree")} Top-down</span></button><button class="alt" title="Copy link" aria-label="Share top-down link" onclick="shareTree(${id},'vert')">🔗</button></span></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
   <button class="alt" onclick="addChild(${id})">+ Child</button>
   <button class="alt" onclick="openMarriage(null,${id})">+ Spouse</button>
   <button class="red" onclick="delPerson(${id})">Delete</button></div>`:"")}
