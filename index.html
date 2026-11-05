@@ -484,7 +484,7 @@ document.addEventListener("click",()=>{const o=$("#mmenu");if(o)o.remove()});
 function route(){
  window.curZ=null;document.body.style.overflow="";document.body.classList.remove("bulkon");if(!/^#\/(members|update)/.test(location.hash)){selMode=false;sel.clear()}
  if(/error_description=/.test(location.hash)){const m=decodeURIComponent((location.hash.match(/error_description=([^&]*)/)[1]||"").replace(/\+/g," "));$("#app").innerHTML=`<div class="status warn">Sign-in failed: ${esc(m)}<br>Request a new link from 👤 and open it right away.</div>`;return}
- const [,a,b]=(location.hash.slice(1)||"/").split("/");
+ const [,a,b,c]=(location.hash.slice(1)||"/").split("/");
  const app=$("#app");
  if(a==="login")return viewLogin(app);
  if(loadErr){app.innerHTML=`<div class="status warn">Could not load data: ${esc(loadErr)}<br>Did you run schema.sql in Supabase?</div>`;return}
@@ -499,7 +499,7 @@ function route(){
  if(a==="members")return viewMembers(app);
  if(a==="update"){if(canEdit())return viewUpdate(app);location.hash="#/login";return}
  if(a==="person")return viewPerson(app,+b);
- if(a==="tree"&&b){const pp=P(+b);if(pp){lay="lrt";st[pp.tree]="all";depthV="all";depthN=99;pendJump=pp.id;return viewTree(app,pp.tree)}
+ if(a==="tree"&&b){const pp=P(+b);if(pp){lay=c==="vert"?"vert":"lrt";st[pp.tree]="all";depthV="all";depthN=99;pendJump=pp.id;return viewTree(app,pp.tree)}
   app.innerHTML=`<div class="status warn">Person not found. <a href="#/" style="text-decoration:underline">Open the tree</a></div>`;return}
  if(a==="add"){if(canEdit()){app.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2>Add member</h2><a class="lk" href="#/bulk">Bulk add ›</a></div><button id="addone">➕ Add a single member</button>';$("#addone").onclick=()=>openPerson();openPerson()}else location.hash="#/login";return}
  const tt=TREES.find(t=>t.slug===a);
@@ -599,14 +599,14 @@ function viewEvents(app){
 let curTree="vetri",lay="lrt",depthN=99,depthV="all";
 const fo={},st={};let pendJump=null;
 /* person page -> Left-right tree, centred on that person's box */
-function toTreeLR(id){
- const p=P(id);if(!p)return;
- lay="lrt";st[p.tree]="all";depthV="all";depthN=99;pendJump=id;
- if(location.hash==="#/tree/"+id)route();else location.hash="#/tree/"+id}
+function toTreeLR(id,l){
+ const p=P(id);if(!p)return;l=l==="vert"?"vert":"lrt";
+ lay=l;st[p.tree]="all";depthV="all";depthN=99;pendJump=id;
+ const h="#/tree/"+id+(l==="vert"?"/vert":"");if(location.hash===h)route();else location.hash=h}
 /* shareable link: opens the Left-right tree centred on this person */
-function treeLink(id){return location.href.split("#")[0]+"#/tree/"+id}
-async function shareTree(id){
- const p=P(id),url=treeLink(id),name=p?dispName(p):"Family tree";
+function treeLink(id,l){return location.href.split("#")[0]+"#/tree/"+id+(l==="vert"?"/vert":"")}
+async function shareTree(id,l){
+ const p=P(id),url=treeLink(id,l),name=p?dispName(p):"Family tree";
  try{if(navigator.share){await navigator.share({title:name+" - Family Tree",url});return}}catch(e){if(e&&e.name==="AbortError")return}
  try{await navigator.clipboard.writeText(url);alert("Link copied:\n"+url)}catch(e){prompt("Copy this link:",url)}}
 function fcard(p,cur){
@@ -1825,7 +1825,7 @@ function openBulk(){
 function viewPerson(app,id){
  const p=P(id);
  if(!p){app.innerHTML=`<div class="status warn">Person not found. <a href="#/members" style="text-decoration:underline">Back to members</a></div>`;return}
- app.innerHTML=rec(p,true)+`<div class="row"><button class="alt" onclick="toTreeLR(${id})"><span class="ibtn">${ico("tree")} Left-to-right tree</span></button> <button class="alt" onclick="shareTree(${id})">🔗 Share tree link</button></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
+ app.innerHTML=rec(p,true)+`<div class="row"><button class="alt" onclick="toTreeLR(${id})"><span class="ibtn">${ico("tree")} Left-to-right tree</span></button> <button class="alt" onclick="shareTree(${id})">🔗 Share left-right link</button></div><div class="row"><button class="alt" onclick="toTreeLR(${id},'vert')"><span class="ibtn">${ico("tree")} Top-down tree</span></button> <button class="alt" onclick="shareTree(${id},'vert')">🔗 Share top-down link</button></div>`+(canEdit()?`<div class="row"><button onclick="openPerson(${id})">Edit</button>
   <button class="alt" onclick="addChild(${id})">+ Child</button>
   <button class="alt" onclick="openMarriage(null,${id})">+ Spouse</button>
   <button class="red" onclick="delPerson(${id})">Delete</button></div>`:"")}
